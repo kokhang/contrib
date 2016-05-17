@@ -21,3 +21,5 @@
 Session.vim
 .netrwhist
 
+# VScode file
+.vscode/
