@@ -6,7 +6,7 @@ RUN ln -sf /proc/1/fd/1 /var/log/nginx/access.log \
 	&& ln -sf /proc/1/fd/2 /var/log/nginx/error.log
 
 COPY ingress-loadbalancer /
-COPY backends/nginx/ingress.tmpl /
+COPY backends/nginx/nginx.tmpl /
 
 RUN rm /etc/nginx/conf.d/*
 
