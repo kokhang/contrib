@@ -8,7 +8,9 @@ import (
 	"github.com/golang/glog"
     "github.com/spf13/pflag"
 
+	"k8s.io/contrib/loadbalancer/backends"
 	"k8s.io/contrib/loadbalancer/backends/nginx"
+	"k8s.io/contrib/loadbalancer/controllers"
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
     kubectl_util "k8s.io/kubernetes/pkg/kubectl/cmd/util"
@@ -24,6 +26,10 @@ var (
 		`Namespace to watch for Ingress/Services/Endpoints. By default the controller
 		watches acrosss all namespaces`)
 )
+
+func init() {
+	backends.Register("nginx", nginx.NewNGINXController)
+}
 
 func main() {
 	flags.AddGoFlagSet(flag.CommandLine)
@@ -46,6 +52,10 @@ func main() {
     if err != nil {
 		glog.Fatalf("failed to create client: %v", err)
 	}
-	nginxController, _ := nginx.NewNginxController(kubeClient, 30*time.Second, *watchNamespace)
-	nginxController.Run()
+	
+	backendController, err := backends.CreateBackendController(map[string]string{
+		"BACKEND": "nginx",
+	})
+	configController, _ := controllers.NewConfigMapController(kubeClient, 30*time.Second, *watchNamespace, backendController)
+	configController.Run()
 }
