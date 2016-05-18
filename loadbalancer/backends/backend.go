@@ -10,7 +10,7 @@ import (
 
 // BackendConfig Config that have all data for backend
 type BackendConfig struct {
-	Host string
+    Host string
     Namespace string
     BindIp string
     BindPort int
@@ -18,6 +18,7 @@ type BackendConfig struct {
     TargetServiceId string
     TargetPort int
     SSL bool
+    SSLPort int
     Path string
     TlsCert string
     TlsKey string

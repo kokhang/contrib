@@ -2,10 +2,12 @@ package nginx
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 
 	"github.com/golang/glog"
 
@@ -19,35 +21,38 @@ type NGINXController struct {
 }
 
 type NGINXConfig struct {
-	upstream Upstream
-	server  Server
+	Upstream Upstream
+	Server  Server
 }
 
 // Upstream describes an NGINX upstream
 type Upstream struct {
-	name            string
-	upstreamServer UpstreamServer
+	Name            string
+	UpstreamServer UpstreamServer
 }
 
 // UpstreamServer describes a server in an NGINX upstream
 type UpstreamServer struct {
-	address string
-	port    string
+	Address string
+	Port    string
 }
 
 // Server describes an NGINX server
 type Server struct {
-	name              string
-	location          Location
-	ssl               bool
-	sslCertificate    string
-	sslCertificateKey string
+	Name              string
+	BindIP            string
+	BindPort		  string
+	Location          Location
+	SSL               bool
+	SSLPort			  string
+	SSLCertificate    string
+	SSLCertificateKey string
 }
 
 // Location describes an NGINX location
 type Location struct {
-	path     string
-	upstream Upstream
+	Path     string
+	Upstream Upstream
 }
 
 // NewNGINXController creates a NGINX controller
@@ -58,24 +63,15 @@ func NewNGINXController(conf map[string]string) (backends.BackendController, err
 		nginxCertsPath: path.Join(conf["CONFIG_PATH"], "ssl"),
 	}
 
-	createCertsDir()
+	createCertsDir(ngxc.nginxCertsPath)
+	start()
 
 	return &ngxc, nil
 }
 
-func (nginxC *NGINXController) Name() string {
+// Name returns the name of the backend controller
+func (nginx *NGINXController) Name() string {
     return "NGINXController"
-}
-
-// DeleteIngress deletes the configuration file, which corresponds for the
-// specified ingress from NGINX conf directory
-func (nginx *NGINXController) DeleteIngress(name string) {
-	filename := getNGINXConfigFileName(name)
-	glog.V(3).Infof("deleting %v", filename)
-
-	if err := os.Remove(filename); err != nil {
-		glog.Warningf("Failed to delete %v: %v", filename, err)
-	}
 }
 
 // AddConfig creates or updates a file with
@@ -85,24 +81,33 @@ func (nginx *NGINXController) AddConfig(name string, config backends.BackendConf
 	glog.Infof("Received config %s: %v", name, config)
 	nginxConfig := generateNGINXCfg(nginx.nginxConfdPath, name, config)
 	filename := path.Join(nginx.nginxConfdPath, name+".conf")
-	nginx.templateIt(nginxConfig, filename)
+	templateIt(nginxConfig, filename)
+	reload()
 }
 
-func getNGINXConfigFileName(name string) string {
-	return path.Join(nginx.nginxConfdPath, name+".conf")
+
+// DeleteIngress deletes the configuration file, which corresponds for the
+// specified ingress from NGINX conf directory
+func (nginx *NGINXController) DeleteIngress(name string) {
+	filename := getNGINXConfigFileName(nginx.nginxConfdPath, name)
+	glog.V(3).Infof("deleting %v", filename)
+
+	if err := os.Remove(filename); err != nil {
+		glog.Warningf("Failed to delete %v: %v", filename, err)
+	}
+}
+
+func getNGINXConfigFileName(cnfPath string, name string) string {
+	return path.Join(cnfPath, name+".conf")
 }
 
 func templateIt(config NGINXConfig, filename string) {
 	tmpl, err := template.New("nginx.tmpl").ParseFiles("nginx.tmpl")
 	if err != nil {
-		glog.Fatal("Failed to parse template file")
+		glog.Fatalf("Failed to parse template. %v", err)
 	}
 
 	glog.Infof("Writing NGINX conf to %v", filename)
-
-	if glog {
-		tmpl.Execute(os.Stdout, config)
-	}
 
 	w, err := os.Create(filename)
 	if err != nil {
@@ -140,27 +145,32 @@ func createCertsDir(path string) {
 func generateNGINXCfg(path string, name string, config backends.BackendConfig) NGINXConfig {
 
 	upsName := getNameForUpstream(name, config.Host, config.TargetServiceName)
-	upstream := createUpstream(name, config)
+	upstream := createUpstream(upsName, config)
 
 	serverName := config.Host
-	server := Server{name: serverName}
+	server := Server{
+		Name: serverName,
+		BindIP: config.BindIp,
+		BindPort: strconv.Itoa(config.BindPort),
+	}
 
 	if config.SSL {
 		pemFile := addOrUpdateCertAndKey(path, name, config.TlsCert, config.TlsKey)
-		server.ssl = true
-		server.sslCertificate = pemFile
-		server.sslCertificateKey = pemFile
+		server.SSLPort = strconv.Itoa(config.SSLPort)
+		server.SSL = true
+		server.SSLCertificate = pemFile
+		server.SSLCertificateKey = pemFile
 	}
 
 	loc := Location{
-		path: config.Path,
-		upstream: upstream,
+		Path: config.Path,
+		Upstream: upstream,
 	}
-	server.location = loc
+	server.Location = loc
 
 	return NGINXConfig {
-		upstream: upstream, 
-		server: server,
+		Upstream: upstream, 
+		Server: server,
 	}
 }
 
@@ -168,10 +178,8 @@ func createUpstream(name string, backend backends.BackendConfig) Upstream {
 	ups := Upstream{
 		Name: name,
 		UpstreamServer: UpstreamServer{
-			UpstreamServer{
-				address: backend.TargetServiceName, 
-				port: backend.TargetPort,
-			},
+			Address: backend.TargetServiceName, 
+			Port: strconv.Itoa(backend.TargetPort),
 		},
 	}
 	return ups
@@ -205,7 +213,7 @@ func addOrUpdateCertAndKey(path string, name string, cert string, key string) st
 }
 
 func getNameForUpstream(name string, host string, service string) string {
-	return fmt.Sprintf("%v-%v-%v", Name, host, service)
+	return fmt.Sprintf("%v-%v-%v", name, host, service)
 }
 
 func shellOut(cmd string) {

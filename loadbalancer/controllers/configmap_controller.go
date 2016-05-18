@@ -19,6 +19,7 @@ package controllers
 import (
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -127,6 +128,7 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
 		bindPort, _ := strconv.Atoi(configMapData["bind-port"])
 		targetPort, _ := strconv.Atoi(configMapData["target-port"])
 		ssl, _ := strconv.ParseBool(configMapData["SSL"])
+		sslPort, _ := strconv.Atoi(configMapData["ssl-port"])
 		backendConfig := backends.BackendConfig{
 			Host: configMapData["host"],
 			Namespace: configMapData["namespace"],
@@ -136,12 +138,16 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
 			TargetServiceId: configMapData["target-service-id"],
 			TargetPort: targetPort,
 			SSL: ssl,
+			SSLPort: sslPort,
 			Path:  configMapData["path"],
 			TlsCert: "some cert", //TODO get certs from secret
 			TlsKey: "some key", //TODO get certs from secret
 		}
 		
-		configMapController.backendController.AddConfig(key, backendConfig)
+		// defaut/some-configmap -> default-some-configmap
+		name := strings.Replace(key, "/", "-", -1)
+		
+		configMapController.backendController.AddConfig(name, backendConfig)
 		
 	}
 

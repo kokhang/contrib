@@ -55,6 +55,7 @@ func main() {
 	
 	backendController, err := backends.CreateBackendController(map[string]string{
 		"BACKEND": "nginx",
+		"CONFIG_PATH": "/etc/nginx",
 	})
 	configController, _ := controllers.NewConfigMapController(kubeClient, 30*time.Second, *watchNamespace, backendController)
 	configController.Run()
