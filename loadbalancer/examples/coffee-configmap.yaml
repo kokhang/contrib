@@ -9,4 +9,4 @@ data:
     target-service-name: "coffee-svc"
     target-port: "80"
     ssl: "false"
-    path: "/foo"
+    path: "/coffee"
