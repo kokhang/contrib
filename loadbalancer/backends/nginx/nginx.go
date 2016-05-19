@@ -17,6 +17,7 @@ import (
 // NGINXController Updates NGINX configuration, starts and reloads NGINX
 type NGINXController struct {
 	nginxConfdPath string
+	nginxTCPConfdPath string
 	nginxCertsPath string
 }
 
@@ -60,10 +61,16 @@ func NewNGINXController(conf map[string]string) (backends.BackendController, err
 
 	ngxc := NGINXController{
 		nginxConfdPath: path.Join(conf["CONFIG_PATH"], "conf.d"),
+		nginxTCPConfdPath: path.Join(conf["CONFIG_PATH"], "conf.d", "tcp"),
 		nginxCertsPath: path.Join(conf["CONFIG_PATH"], "ssl"),
 	}
 
-	createCertsDir(ngxc.nginxCertsPath)
+	// This is to add a include directive for tcp apps
+	appendStreamDirectiveToCfg(path.Join(conf["CONFIG_PATH"], "nginx.conf"))
+	// Create tcp config dir
+	createDir(ngxc.nginxTCPConfdPath)
+	// Create cert dir
+	createDir(ngxc.nginxCertsPath)
 	start()
 
 	return &ngxc, nil
@@ -79,22 +86,31 @@ func (nginx *NGINXController) Name() string {
 func (nginx *NGINXController) AddConfig(name string, config backends.BackendConfig) {
 	glog.Infof("Updating NGINX configuration")
 	glog.Infof("Received config %s: %v", name, config)
-	nginxConfig := generateNGINXCfg(nginx.nginxConfdPath, name, config)
-	filename := path.Join(nginx.nginxConfdPath, name+".conf")
-	templateIt(nginxConfig, filename)
+	nginxConfig := generateNGINXCfg(nginx.nginxCertsPath, name, config)
+	
+	var configFile string
+	if config.Path != "" {
+		// HTTP app so put config file under conf.d
+		configFile = getNGINXConfigFileName(nginx.nginxConfdPath, name)
+	}else {
+		// TCP app so put config file under conf.d/tcp
+		configFile = getNGINXConfigFileName(nginx.nginxTCPConfdPath, name)
+	}
+	templateIt(nginxConfig, configFile)
 	reload()
 }
 
 
-// DeleteIngress deletes the configuration file, which corresponds for the
-// specified ingress from NGINX conf directory
-func (nginx *NGINXController) DeleteIngress(name string) {
+// DeleteConfig deletes the configuration file, which corresponds for the
+// specified configmap from NGINX conf directory
+func (nginx *NGINXController) DeleteConfig(name string) {
 	filename := getNGINXConfigFileName(nginx.nginxConfdPath, name)
-	glog.V(3).Infof("deleting %v", filename)
+	glog.Infof("Deleting %v", filename)
 
 	if err := os.Remove(filename); err != nil {
 		glog.Warningf("Failed to delete %v: %v", filename, err)
 	}
+	reload()
 }
 
 func getNGINXConfigFileName(cnfPath string, name string) string {
@@ -132,7 +148,7 @@ func start() {
 	shellOut("nginx")
 }
 
-func createCertsDir(path string) {
+func createDir(path string) {
 	if err := os.Mkdir(path, os.ModeDir); err != nil {
 		if os.IsExist(err) {
 			glog.Infof("%v already exists", err)
@@ -142,7 +158,27 @@ func createCertsDir(path string) {
 	}
 }
 
-func generateNGINXCfg(path string, name string, config backends.BackendConfig) NGINXConfig {
+func appendStreamDirectiveToCfg(configFile string) {
+	directive := 
+`
+stream {
+    include /etc/nginx/conf.d/tcp/*.conf;
+}
+`
+	
+	f, err := os.OpenFile(configFile, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		glog.Fatalf("Couldn't open config file %v: %v", configFile, err)
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(directive); err != nil {
+		glog.Fatalf("Couldn't create stream directive to config file %v: %v", configFile, err)
+	}
+}
+
+func generateNGINXCfg(certPath string, name string, config backends.BackendConfig) NGINXConfig {
 
 	upsName := getNameForUpstream(name, config.Host, config.TargetServiceName)
 	upstream := createUpstream(upsName, config)
@@ -155,7 +191,7 @@ func generateNGINXCfg(path string, name string, config backends.BackendConfig) N
 	}
 
 	if config.SSL {
-		pemFile := addOrUpdateCertAndKey(path, name, config.TlsCert, config.TlsKey)
+		pemFile := addOrUpdateCertAndKey(certPath, name, config.TlsCert, config.TlsKey)
 		server.SSLPort = strconv.Itoa(config.SSLPort)
 		server.SSL = true
 		server.SSLCertificate = pemFile

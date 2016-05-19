@@ -27,6 +27,7 @@ type BackendConfig struct {
 type BackendController interface {
     Name() string
     AddConfig(name string, config BackendConfig)
+    DeleteConfig(name string)
 }
 
 // BackendControllerFactory Factory for backend controllers

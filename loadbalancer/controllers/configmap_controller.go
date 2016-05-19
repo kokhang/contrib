@@ -109,6 +109,9 @@ func configMapWatchFunc(c *client.Client, ns string) func(options api.ListOption
 
 func (configMapController *ConfigMapController) syncConfigMap(key string) {
 	glog.Infof("Syncing %v", key)
+	
+	// defaut/some-configmap -> default-some-configmap
+	name := strings.Replace(key, "/", "-", -1)
 
 	obj, configMapExists, err := configMapController.configMapLister.Store.GetByKey(key)
 	if err != nil {
@@ -118,12 +121,10 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
     
     if !configMapExists {
 		glog.Infof("Deleting ConfigMap: %v\n", key)
+		configMapController.backendController.DeleteConfig(name)
     } else {
         configMap := obj.(*api.ConfigMap)
 		configMapData := configMap.Data
-		for k, v := range configMapData {
-        	glog.Infof("Config Map Name: %v. Data: %v:%v", configMap.Name, k, v)
-		}
 
 		bindPort, _ := strconv.Atoi(configMapData["bind-port"])
 		targetPort, _ := strconv.Atoi(configMapData["target-port"])
@@ -143,12 +144,6 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
 			TlsCert: "some cert", //TODO get certs from secret
 			TlsKey: "some key", //TODO get certs from secret
 		}
-		
-		// defaut/some-configmap -> default-some-configmap
-		name := strings.Replace(key, "/", "-", -1)
-		
-		configMapController.backendController.AddConfig(name, backendConfig)
-		
+		configMapController.backendController.AddConfig(name, backendConfig)	
 	}
-
 }

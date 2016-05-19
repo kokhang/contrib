@@ -10,7 +10,7 @@ ingress-loadbalancer:
 test:
 	godep go test ./...
 
-container: ingress-loadbalancer test
+container: clean ingress-loadbalancer test
 	docker build -t $(PREFIX):$(TAG) .
 
 push: container
