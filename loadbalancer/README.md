@@ -10,11 +10,10 @@ It is designed to easily integrate and create different load balancing backends.
 ## Examples
 
 ### HTTP Load Balancing:
-1. Create coffee service and replication controller:
+1. Create coffee web app, which consists of a service and replication controller resource:
 
   ```
-  $ kubectl create -f examples/coffee-rc.yaml
-  $ kubectl create -f examples/coffee-svc.yaml
+  $ kubectl create -f examples/coffee-app.yaml
   ```
 
 1. Create controller Resource:
