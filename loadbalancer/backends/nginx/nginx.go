@@ -105,8 +105,13 @@ func (nginx *NGINXController) AddConfig(name string, config backends.BackendConf
 // specified configmap from NGINX conf directory
 func (nginx *NGINXController) DeleteConfig(name string) {
 	filename := getNGINXConfigFileName(nginx.nginxConfdPath, name)
-	glog.Infof("Deleting %v", filename)
 
+	// check if filename exist.
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return;
+	}
+
+	glog.Infof("Deleting %v", filename)
 	if err := os.Remove(filename); err != nil {
 		glog.Warningf("Failed to delete %v: %v", filename, err)
 	}

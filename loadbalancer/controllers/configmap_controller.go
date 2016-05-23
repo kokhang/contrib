@@ -44,8 +44,10 @@ type ConfigMapController struct {
 	backendController    backends.BackendController
 }
 
+// Values to verify the configmap object is a loadbalancer config
 const (
-	emptyHost = ""
+	configLabelKey = "app"
+	configLabelValue = "loadbalancer"
 )
 
 var keyFunc = framework.DeletionHandlingMetaNamespaceKeyFunc
@@ -61,19 +63,13 @@ func NewConfigMapController(kubeClient *client.Client, resyncPeriod time.Duratio
 
 	configMapHandlers := framework.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			addConfigMap := obj.(*api.ConfigMap)
-			glog.Infof("Adding ConfigMap: %v", addConfigMap.Name)
 			configMapController.configMapQueue.enqueue(obj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			remConfigMap := obj.(*api.ConfigMap)
-			glog.Infof("Removing ConfigMap: %v", remConfigMap.Name)
 			configMapController.configMapQueue.enqueue(obj)
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			if !reflect.DeepEqual(old, cur) {
-				glog.Infof("ConfigMap %v changed, syncing",
-					cur.(*api.ConfigMap).Name)
 				configMapController.configMapQueue.enqueue(cur)
 			}
 		},
@@ -120,11 +116,18 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
 	}
     
     if !configMapExists {
-		glog.Infof("Deleting ConfigMap: %v\n", key)
 		configMapController.backendController.DeleteConfig(name)
     } else {
         configMap := obj.(*api.ConfigMap)
 		configMapData := configMap.Data
+		configMapMetaData := configMap.ObjectMeta
+
+		// Check if the configmap event is of type app=loadbalancer.
+		if val, ok := configMapMetaData.Labels[configLabelKey]; !ok || val != configLabelValue{
+			return;
+		}
+
+		glog.Infof("Adding ConfigMap: %v", key)
 
 		bindPort, _ := strconv.Atoi(configMapData["bind-port"])
 		targetPort, _ := strconv.Atoi(configMapData["target-port"])
