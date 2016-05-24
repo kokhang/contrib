@@ -24,17 +24,17 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	unversioned "k8s.io/kubernetes/pkg/api/unversioned"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	autoscaling "k8s.io/kubernetes/pkg/apis/autoscaling"
 	batch "k8s.io/kubernetes/pkg/apis/batch"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions"
 	conversion "k8s.io/kubernetes/pkg/conversion"
+	intstr "k8s.io/kubernetes/pkg/util/intstr"
 )
 
 func init() {
 	if err := api.Scheme.AddGeneratedConversionFuncs(
 		Convert_v1beta1_APIVersion_To_extensions_APIVersion,
 		Convert_extensions_APIVersion_To_v1beta1_APIVersion,
-		Convert_v1beta1_CPUTargetUtilization_To_extensions_CPUTargetUtilization,
-		Convert_extensions_CPUTargetUtilization_To_v1beta1_CPUTargetUtilization,
 		Convert_v1beta1_CustomMetricCurrentStatus_To_extensions_CustomMetricCurrentStatus,
 		Convert_extensions_CustomMetricCurrentStatus_To_v1beta1_CustomMetricCurrentStatus,
 		Convert_v1beta1_CustomMetricCurrentStatusList_To_extensions_CustomMetricCurrentStatusList,
@@ -63,18 +63,20 @@ func init() {
 		Convert_extensions_DeploymentStatus_To_v1beta1_DeploymentStatus,
 		Convert_v1beta1_DeploymentStrategy_To_extensions_DeploymentStrategy,
 		Convert_extensions_DeploymentStrategy_To_v1beta1_DeploymentStrategy,
+		Convert_v1beta1_FSGroupStrategyOptions_To_extensions_FSGroupStrategyOptions,
+		Convert_extensions_FSGroupStrategyOptions_To_v1beta1_FSGroupStrategyOptions,
 		Convert_v1beta1_HTTPIngressPath_To_extensions_HTTPIngressPath,
 		Convert_extensions_HTTPIngressPath_To_v1beta1_HTTPIngressPath,
 		Convert_v1beta1_HTTPIngressRuleValue_To_extensions_HTTPIngressRuleValue,
 		Convert_extensions_HTTPIngressRuleValue_To_v1beta1_HTTPIngressRuleValue,
-		Convert_v1beta1_HorizontalPodAutoscaler_To_extensions_HorizontalPodAutoscaler,
-		Convert_extensions_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler,
-		Convert_v1beta1_HorizontalPodAutoscalerList_To_extensions_HorizontalPodAutoscalerList,
-		Convert_extensions_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList,
-		Convert_v1beta1_HorizontalPodAutoscalerSpec_To_extensions_HorizontalPodAutoscalerSpec,
-		Convert_extensions_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec,
-		Convert_v1beta1_HorizontalPodAutoscalerStatus_To_extensions_HorizontalPodAutoscalerStatus,
-		Convert_extensions_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus,
+		Convert_v1beta1_HorizontalPodAutoscaler_To_autoscaling_HorizontalPodAutoscaler,
+		Convert_autoscaling_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler,
+		Convert_v1beta1_HorizontalPodAutoscalerList_To_autoscaling_HorizontalPodAutoscalerList,
+		Convert_autoscaling_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList,
+		Convert_v1beta1_HorizontalPodAutoscalerSpec_To_autoscaling_HorizontalPodAutoscalerSpec,
+		Convert_autoscaling_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec,
+		Convert_v1beta1_HorizontalPodAutoscalerStatus_To_autoscaling_HorizontalPodAutoscalerStatus,
+		Convert_autoscaling_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus,
 		Convert_v1beta1_HostPortRange_To_extensions_HostPortRange,
 		Convert_extensions_HostPortRange_To_v1beta1_HostPortRange,
 		Convert_v1beta1_IDRange_To_extensions_IDRange,
@@ -109,6 +111,18 @@ func init() {
 		Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector,
 		Convert_v1beta1_LabelSelectorRequirement_To_unversioned_LabelSelectorRequirement,
 		Convert_unversioned_LabelSelectorRequirement_To_v1beta1_LabelSelectorRequirement,
+		Convert_v1beta1_NetworkPolicy_To_extensions_NetworkPolicy,
+		Convert_extensions_NetworkPolicy_To_v1beta1_NetworkPolicy,
+		Convert_v1beta1_NetworkPolicyIngressRule_To_extensions_NetworkPolicyIngressRule,
+		Convert_extensions_NetworkPolicyIngressRule_To_v1beta1_NetworkPolicyIngressRule,
+		Convert_v1beta1_NetworkPolicyList_To_extensions_NetworkPolicyList,
+		Convert_extensions_NetworkPolicyList_To_v1beta1_NetworkPolicyList,
+		Convert_v1beta1_NetworkPolicyPeer_To_extensions_NetworkPolicyPeer,
+		Convert_extensions_NetworkPolicyPeer_To_v1beta1_NetworkPolicyPeer,
+		Convert_v1beta1_NetworkPolicyPort_To_extensions_NetworkPolicyPort,
+		Convert_extensions_NetworkPolicyPort_To_v1beta1_NetworkPolicyPort,
+		Convert_v1beta1_NetworkPolicySpec_To_extensions_NetworkPolicySpec,
+		Convert_extensions_NetworkPolicySpec_To_v1beta1_NetworkPolicySpec,
 		Convert_v1beta1_PodSecurityPolicy_To_extensions_PodSecurityPolicy,
 		Convert_extensions_PodSecurityPolicy_To_v1beta1_PodSecurityPolicy,
 		Convert_v1beta1_PodSecurityPolicyList_To_extensions_PodSecurityPolicyList,
@@ -139,8 +153,8 @@ func init() {
 		Convert_extensions_ScaleSpec_To_v1beta1_ScaleSpec,
 		Convert_v1beta1_ScaleStatus_To_extensions_ScaleStatus,
 		Convert_extensions_ScaleStatus_To_v1beta1_ScaleStatus,
-		Convert_v1beta1_SubresourceReference_To_extensions_SubresourceReference,
-		Convert_extensions_SubresourceReference_To_v1beta1_SubresourceReference,
+		Convert_v1beta1_SupplementalGroupsStrategyOptions_To_extensions_SupplementalGroupsStrategyOptions,
+		Convert_extensions_SupplementalGroupsStrategyOptions_To_v1beta1_SupplementalGroupsStrategyOptions,
 		Convert_v1beta1_ThirdPartyResource_To_extensions_ThirdPartyResource,
 		Convert_extensions_ThirdPartyResource_To_v1beta1_ThirdPartyResource,
 		Convert_v1beta1_ThirdPartyResourceData_To_extensions_ThirdPartyResourceData,
@@ -171,24 +185,6 @@ func autoConvert_extensions_APIVersion_To_v1beta1_APIVersion(in *extensions.APIV
 
 func Convert_extensions_APIVersion_To_v1beta1_APIVersion(in *extensions.APIVersion, out *APIVersion, s conversion.Scope) error {
 	return autoConvert_extensions_APIVersion_To_v1beta1_APIVersion(in, out, s)
-}
-
-func autoConvert_v1beta1_CPUTargetUtilization_To_extensions_CPUTargetUtilization(in *CPUTargetUtilization, out *extensions.CPUTargetUtilization, s conversion.Scope) error {
-	out.TargetPercentage = in.TargetPercentage
-	return nil
-}
-
-func Convert_v1beta1_CPUTargetUtilization_To_extensions_CPUTargetUtilization(in *CPUTargetUtilization, out *extensions.CPUTargetUtilization, s conversion.Scope) error {
-	return autoConvert_v1beta1_CPUTargetUtilization_To_extensions_CPUTargetUtilization(in, out, s)
-}
-
-func autoConvert_extensions_CPUTargetUtilization_To_v1beta1_CPUTargetUtilization(in *extensions.CPUTargetUtilization, out *CPUTargetUtilization, s conversion.Scope) error {
-	out.TargetPercentage = in.TargetPercentage
-	return nil
-}
-
-func Convert_extensions_CPUTargetUtilization_To_v1beta1_CPUTargetUtilization(in *extensions.CPUTargetUtilization, out *CPUTargetUtilization, s conversion.Scope) error {
-	return autoConvert_extensions_CPUTargetUtilization_To_v1beta1_CPUTargetUtilization(in, out, s)
 }
 
 func autoConvert_v1beta1_CustomMetricCurrentStatus_To_extensions_CustomMetricCurrentStatus(in *CustomMetricCurrentStatus, out *extensions.CustomMetricCurrentStatus, s conversion.Scope) error {
@@ -418,8 +414,7 @@ func autoConvert_v1beta1_DaemonSetSpec_To_extensions_DaemonSetSpec(in *DaemonSet
 	} else {
 		out.Selector = nil
 	}
-	// TODO: Inefficient conversion - can we improve it?
-	if err := s.Convert(&in.Template, &out.Template, 0); err != nil {
+	if err := v1.Convert_v1_PodTemplateSpec_To_api_PodTemplateSpec(&in.Template, &out.Template, s); err != nil {
 		return err
 	}
 	return nil
@@ -439,8 +434,7 @@ func autoConvert_extensions_DaemonSetSpec_To_v1beta1_DaemonSetSpec(in *extension
 	} else {
 		out.Selector = nil
 	}
-	// TODO: Inefficient conversion - can we improve it?
-	if err := s.Convert(&in.Template, &out.Template, 0); err != nil {
+	if err := v1.Convert_api_PodTemplateSpec_To_v1_PodTemplateSpec(&in.Template, &out.Template, s); err != nil {
 		return err
 	}
 	return nil
@@ -667,6 +661,46 @@ func autoConvert_extensions_DeploymentStrategy_To_v1beta1_DeploymentStrategy(in 
 	return nil
 }
 
+func autoConvert_v1beta1_FSGroupStrategyOptions_To_extensions_FSGroupStrategyOptions(in *FSGroupStrategyOptions, out *extensions.FSGroupStrategyOptions, s conversion.Scope) error {
+	out.Rule = extensions.FSGroupStrategyType(in.Rule)
+	if in.Ranges != nil {
+		in, out := &in.Ranges, &out.Ranges
+		*out = make([]extensions.IDRange, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_IDRange_To_extensions_IDRange(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ranges = nil
+	}
+	return nil
+}
+
+func Convert_v1beta1_FSGroupStrategyOptions_To_extensions_FSGroupStrategyOptions(in *FSGroupStrategyOptions, out *extensions.FSGroupStrategyOptions, s conversion.Scope) error {
+	return autoConvert_v1beta1_FSGroupStrategyOptions_To_extensions_FSGroupStrategyOptions(in, out, s)
+}
+
+func autoConvert_extensions_FSGroupStrategyOptions_To_v1beta1_FSGroupStrategyOptions(in *extensions.FSGroupStrategyOptions, out *FSGroupStrategyOptions, s conversion.Scope) error {
+	out.Rule = FSGroupStrategyType(in.Rule)
+	if in.Ranges != nil {
+		in, out := &in.Ranges, &out.Ranges
+		*out = make([]IDRange, len(*in))
+		for i := range *in {
+			if err := Convert_extensions_IDRange_To_v1beta1_IDRange(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ranges = nil
+	}
+	return nil
+}
+
+func Convert_extensions_FSGroupStrategyOptions_To_v1beta1_FSGroupStrategyOptions(in *extensions.FSGroupStrategyOptions, out *FSGroupStrategyOptions, s conversion.Scope) error {
+	return autoConvert_extensions_FSGroupStrategyOptions_To_v1beta1_FSGroupStrategyOptions(in, out, s)
+}
+
 func autoConvert_v1beta1_HTTPIngressPath_To_extensions_HTTPIngressPath(in *HTTPIngressPath, out *extensions.HTTPIngressPath, s conversion.Scope) error {
 	out.Path = in.Path
 	if err := Convert_v1beta1_IngressBackend_To_extensions_IngressBackend(&in.Backend, &out.Backend, s); err != nil {
@@ -729,7 +763,7 @@ func Convert_extensions_HTTPIngressRuleValue_To_v1beta1_HTTPIngressRuleValue(in 
 	return autoConvert_extensions_HTTPIngressRuleValue_To_v1beta1_HTTPIngressRuleValue(in, out, s)
 }
 
-func autoConvert_v1beta1_HorizontalPodAutoscaler_To_extensions_HorizontalPodAutoscaler(in *HorizontalPodAutoscaler, out *extensions.HorizontalPodAutoscaler, s conversion.Scope) error {
+func autoConvert_v1beta1_HorizontalPodAutoscaler_To_autoscaling_HorizontalPodAutoscaler(in *HorizontalPodAutoscaler, out *autoscaling.HorizontalPodAutoscaler, s conversion.Scope) error {
 	SetDefaults_HorizontalPodAutoscaler(in)
 	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
 		return err
@@ -738,20 +772,20 @@ func autoConvert_v1beta1_HorizontalPodAutoscaler_To_extensions_HorizontalPodAuto
 	if err := s.Convert(&in.ObjectMeta, &out.ObjectMeta, 0); err != nil {
 		return err
 	}
-	if err := Convert_v1beta1_HorizontalPodAutoscalerSpec_To_extensions_HorizontalPodAutoscalerSpec(&in.Spec, &out.Spec, s); err != nil {
+	if err := Convert_v1beta1_HorizontalPodAutoscalerSpec_To_autoscaling_HorizontalPodAutoscalerSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
-	if err := Convert_v1beta1_HorizontalPodAutoscalerStatus_To_extensions_HorizontalPodAutoscalerStatus(&in.Status, &out.Status, s); err != nil {
+	if err := Convert_v1beta1_HorizontalPodAutoscalerStatus_To_autoscaling_HorizontalPodAutoscalerStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 	return nil
 }
 
-func Convert_v1beta1_HorizontalPodAutoscaler_To_extensions_HorizontalPodAutoscaler(in *HorizontalPodAutoscaler, out *extensions.HorizontalPodAutoscaler, s conversion.Scope) error {
-	return autoConvert_v1beta1_HorizontalPodAutoscaler_To_extensions_HorizontalPodAutoscaler(in, out, s)
+func Convert_v1beta1_HorizontalPodAutoscaler_To_autoscaling_HorizontalPodAutoscaler(in *HorizontalPodAutoscaler, out *autoscaling.HorizontalPodAutoscaler, s conversion.Scope) error {
+	return autoConvert_v1beta1_HorizontalPodAutoscaler_To_autoscaling_HorizontalPodAutoscaler(in, out, s)
 }
 
-func autoConvert_extensions_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(in *extensions.HorizontalPodAutoscaler, out *HorizontalPodAutoscaler, s conversion.Scope) error {
+func autoConvert_autoscaling_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(in *autoscaling.HorizontalPodAutoscaler, out *HorizontalPodAutoscaler, s conversion.Scope) error {
 	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
 		return err
 	}
@@ -759,20 +793,20 @@ func autoConvert_extensions_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAuto
 	if err := s.Convert(&in.ObjectMeta, &out.ObjectMeta, 0); err != nil {
 		return err
 	}
-	if err := Convert_extensions_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec(&in.Spec, &out.Spec, s); err != nil {
+	if err := Convert_autoscaling_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
-	if err := Convert_extensions_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(&in.Status, &out.Status, s); err != nil {
+	if err := Convert_autoscaling_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 	return nil
 }
 
-func Convert_extensions_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(in *extensions.HorizontalPodAutoscaler, out *HorizontalPodAutoscaler, s conversion.Scope) error {
-	return autoConvert_extensions_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(in, out, s)
+func Convert_autoscaling_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(in *autoscaling.HorizontalPodAutoscaler, out *HorizontalPodAutoscaler, s conversion.Scope) error {
+	return autoConvert_autoscaling_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(in, out, s)
 }
 
-func autoConvert_v1beta1_HorizontalPodAutoscalerList_To_extensions_HorizontalPodAutoscalerList(in *HorizontalPodAutoscalerList, out *extensions.HorizontalPodAutoscalerList, s conversion.Scope) error {
+func autoConvert_v1beta1_HorizontalPodAutoscalerList_To_autoscaling_HorizontalPodAutoscalerList(in *HorizontalPodAutoscalerList, out *autoscaling.HorizontalPodAutoscalerList, s conversion.Scope) error {
 	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
 		return err
 	}
@@ -781,9 +815,9 @@ func autoConvert_v1beta1_HorizontalPodAutoscalerList_To_extensions_HorizontalPod
 	}
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]extensions.HorizontalPodAutoscaler, len(*in))
+		*out = make([]autoscaling.HorizontalPodAutoscaler, len(*in))
 		for i := range *in {
-			if err := Convert_v1beta1_HorizontalPodAutoscaler_To_extensions_HorizontalPodAutoscaler(&(*in)[i], &(*out)[i], s); err != nil {
+			if err := Convert_v1beta1_HorizontalPodAutoscaler_To_autoscaling_HorizontalPodAutoscaler(&(*in)[i], &(*out)[i], s); err != nil {
 				return err
 			}
 		}
@@ -793,11 +827,11 @@ func autoConvert_v1beta1_HorizontalPodAutoscalerList_To_extensions_HorizontalPod
 	return nil
 }
 
-func Convert_v1beta1_HorizontalPodAutoscalerList_To_extensions_HorizontalPodAutoscalerList(in *HorizontalPodAutoscalerList, out *extensions.HorizontalPodAutoscalerList, s conversion.Scope) error {
-	return autoConvert_v1beta1_HorizontalPodAutoscalerList_To_extensions_HorizontalPodAutoscalerList(in, out, s)
+func Convert_v1beta1_HorizontalPodAutoscalerList_To_autoscaling_HorizontalPodAutoscalerList(in *HorizontalPodAutoscalerList, out *autoscaling.HorizontalPodAutoscalerList, s conversion.Scope) error {
+	return autoConvert_v1beta1_HorizontalPodAutoscalerList_To_autoscaling_HorizontalPodAutoscalerList(in, out, s)
 }
 
-func autoConvert_extensions_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList(in *extensions.HorizontalPodAutoscalerList, out *HorizontalPodAutoscalerList, s conversion.Scope) error {
+func autoConvert_autoscaling_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList(in *autoscaling.HorizontalPodAutoscalerList, out *HorizontalPodAutoscalerList, s conversion.Scope) error {
 	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
 		return err
 	}
@@ -808,7 +842,7 @@ func autoConvert_extensions_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPod
 		in, out := &in.Items, &out.Items
 		*out = make([]HorizontalPodAutoscaler, len(*in))
 		for i := range *in {
-			if err := Convert_extensions_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(&(*in)[i], &(*out)[i], s); err != nil {
+			if err := Convert_autoscaling_HorizontalPodAutoscaler_To_v1beta1_HorizontalPodAutoscaler(&(*in)[i], &(*out)[i], s); err != nil {
 				return err
 			}
 		}
@@ -818,67 +852,11 @@ func autoConvert_extensions_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPod
 	return nil
 }
 
-func Convert_extensions_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList(in *extensions.HorizontalPodAutoscalerList, out *HorizontalPodAutoscalerList, s conversion.Scope) error {
-	return autoConvert_extensions_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList(in, out, s)
+func Convert_autoscaling_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList(in *autoscaling.HorizontalPodAutoscalerList, out *HorizontalPodAutoscalerList, s conversion.Scope) error {
+	return autoConvert_autoscaling_HorizontalPodAutoscalerList_To_v1beta1_HorizontalPodAutoscalerList(in, out, s)
 }
 
-func autoConvert_v1beta1_HorizontalPodAutoscalerSpec_To_extensions_HorizontalPodAutoscalerSpec(in *HorizontalPodAutoscalerSpec, out *extensions.HorizontalPodAutoscalerSpec, s conversion.Scope) error {
-	if err := Convert_v1beta1_SubresourceReference_To_extensions_SubresourceReference(&in.ScaleRef, &out.ScaleRef, s); err != nil {
-		return err
-	}
-	if in.MinReplicas != nil {
-		in, out := &in.MinReplicas, &out.MinReplicas
-		*out = new(int32)
-		**out = **in
-	} else {
-		out.MinReplicas = nil
-	}
-	out.MaxReplicas = in.MaxReplicas
-	if in.CPUUtilization != nil {
-		in, out := &in.CPUUtilization, &out.CPUUtilization
-		*out = new(extensions.CPUTargetUtilization)
-		if err := Convert_v1beta1_CPUTargetUtilization_To_extensions_CPUTargetUtilization(*in, *out, s); err != nil {
-			return err
-		}
-	} else {
-		out.CPUUtilization = nil
-	}
-	return nil
-}
-
-func Convert_v1beta1_HorizontalPodAutoscalerSpec_To_extensions_HorizontalPodAutoscalerSpec(in *HorizontalPodAutoscalerSpec, out *extensions.HorizontalPodAutoscalerSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_HorizontalPodAutoscalerSpec_To_extensions_HorizontalPodAutoscalerSpec(in, out, s)
-}
-
-func autoConvert_extensions_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec(in *extensions.HorizontalPodAutoscalerSpec, out *HorizontalPodAutoscalerSpec, s conversion.Scope) error {
-	if err := Convert_extensions_SubresourceReference_To_v1beta1_SubresourceReference(&in.ScaleRef, &out.ScaleRef, s); err != nil {
-		return err
-	}
-	if in.MinReplicas != nil {
-		in, out := &in.MinReplicas, &out.MinReplicas
-		*out = new(int32)
-		**out = **in
-	} else {
-		out.MinReplicas = nil
-	}
-	out.MaxReplicas = in.MaxReplicas
-	if in.CPUUtilization != nil {
-		in, out := &in.CPUUtilization, &out.CPUUtilization
-		*out = new(CPUTargetUtilization)
-		if err := Convert_extensions_CPUTargetUtilization_To_v1beta1_CPUTargetUtilization(*in, *out, s); err != nil {
-			return err
-		}
-	} else {
-		out.CPUUtilization = nil
-	}
-	return nil
-}
-
-func Convert_extensions_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec(in *extensions.HorizontalPodAutoscalerSpec, out *HorizontalPodAutoscalerSpec, s conversion.Scope) error {
-	return autoConvert_extensions_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec(in, out, s)
-}
-
-func autoConvert_v1beta1_HorizontalPodAutoscalerStatus_To_extensions_HorizontalPodAutoscalerStatus(in *HorizontalPodAutoscalerStatus, out *extensions.HorizontalPodAutoscalerStatus, s conversion.Scope) error {
+func autoConvert_v1beta1_HorizontalPodAutoscalerStatus_To_autoscaling_HorizontalPodAutoscalerStatus(in *HorizontalPodAutoscalerStatus, out *autoscaling.HorizontalPodAutoscalerStatus, s conversion.Scope) error {
 	if in.ObservedGeneration != nil {
 		in, out := &in.ObservedGeneration, &out.ObservedGeneration
 		*out = new(int64)
@@ -907,11 +885,11 @@ func autoConvert_v1beta1_HorizontalPodAutoscalerStatus_To_extensions_HorizontalP
 	return nil
 }
 
-func Convert_v1beta1_HorizontalPodAutoscalerStatus_To_extensions_HorizontalPodAutoscalerStatus(in *HorizontalPodAutoscalerStatus, out *extensions.HorizontalPodAutoscalerStatus, s conversion.Scope) error {
-	return autoConvert_v1beta1_HorizontalPodAutoscalerStatus_To_extensions_HorizontalPodAutoscalerStatus(in, out, s)
+func Convert_v1beta1_HorizontalPodAutoscalerStatus_To_autoscaling_HorizontalPodAutoscalerStatus(in *HorizontalPodAutoscalerStatus, out *autoscaling.HorizontalPodAutoscalerStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_HorizontalPodAutoscalerStatus_To_autoscaling_HorizontalPodAutoscalerStatus(in, out, s)
 }
 
-func autoConvert_extensions_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(in *extensions.HorizontalPodAutoscalerStatus, out *HorizontalPodAutoscalerStatus, s conversion.Scope) error {
+func autoConvert_autoscaling_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(in *autoscaling.HorizontalPodAutoscalerStatus, out *HorizontalPodAutoscalerStatus, s conversion.Scope) error {
 	if in.ObservedGeneration != nil {
 		in, out := &in.ObservedGeneration, &out.ObservedGeneration
 		*out = new(int64)
@@ -940,8 +918,8 @@ func autoConvert_extensions_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalP
 	return nil
 }
 
-func Convert_extensions_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(in *extensions.HorizontalPodAutoscalerStatus, out *HorizontalPodAutoscalerStatus, s conversion.Scope) error {
-	return autoConvert_extensions_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(in, out, s)
+func Convert_autoscaling_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(in *autoscaling.HorizontalPodAutoscalerStatus, out *HorizontalPodAutoscalerStatus, s conversion.Scope) error {
+	return autoConvert_autoscaling_HorizontalPodAutoscalerStatus_To_v1beta1_HorizontalPodAutoscalerStatus(in, out, s)
 }
 
 func autoConvert_v1beta1_HostPortRange_To_extensions_HostPortRange(in *HostPortRange, out *extensions.HostPortRange, s conversion.Scope) error {
@@ -1591,6 +1569,297 @@ func Convert_unversioned_LabelSelectorRequirement_To_v1beta1_LabelSelectorRequir
 	return autoConvert_unversioned_LabelSelectorRequirement_To_v1beta1_LabelSelectorRequirement(in, out, s)
 }
 
+func autoConvert_v1beta1_NetworkPolicy_To_extensions_NetworkPolicy(in *NetworkPolicy, out *extensions.NetworkPolicy, s conversion.Scope) error {
+	SetDefaults_NetworkPolicy(in)
+	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
+		return err
+	}
+	// TODO: Inefficient conversion - can we improve it?
+	if err := s.Convert(&in.ObjectMeta, &out.ObjectMeta, 0); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_NetworkPolicySpec_To_extensions_NetworkPolicySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_v1beta1_NetworkPolicy_To_extensions_NetworkPolicy(in *NetworkPolicy, out *extensions.NetworkPolicy, s conversion.Scope) error {
+	return autoConvert_v1beta1_NetworkPolicy_To_extensions_NetworkPolicy(in, out, s)
+}
+
+func autoConvert_extensions_NetworkPolicy_To_v1beta1_NetworkPolicy(in *extensions.NetworkPolicy, out *NetworkPolicy, s conversion.Scope) error {
+	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
+		return err
+	}
+	// TODO: Inefficient conversion - can we improve it?
+	if err := s.Convert(&in.ObjectMeta, &out.ObjectMeta, 0); err != nil {
+		return err
+	}
+	if err := Convert_extensions_NetworkPolicySpec_To_v1beta1_NetworkPolicySpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_extensions_NetworkPolicy_To_v1beta1_NetworkPolicy(in *extensions.NetworkPolicy, out *NetworkPolicy, s conversion.Scope) error {
+	return autoConvert_extensions_NetworkPolicy_To_v1beta1_NetworkPolicy(in, out, s)
+}
+
+func autoConvert_v1beta1_NetworkPolicyIngressRule_To_extensions_NetworkPolicyIngressRule(in *NetworkPolicyIngressRule, out *extensions.NetworkPolicyIngressRule, s conversion.Scope) error {
+	if in.Ports != nil {
+		in, out := &in.Ports, &out.Ports
+		*out = make([]extensions.NetworkPolicyPort, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_NetworkPolicyPort_To_extensions_NetworkPolicyPort(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ports = nil
+	}
+	if in.From != nil {
+		in, out := &in.From, &out.From
+		*out = make([]extensions.NetworkPolicyPeer, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_NetworkPolicyPeer_To_extensions_NetworkPolicyPeer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.From = nil
+	}
+	return nil
+}
+
+func Convert_v1beta1_NetworkPolicyIngressRule_To_extensions_NetworkPolicyIngressRule(in *NetworkPolicyIngressRule, out *extensions.NetworkPolicyIngressRule, s conversion.Scope) error {
+	return autoConvert_v1beta1_NetworkPolicyIngressRule_To_extensions_NetworkPolicyIngressRule(in, out, s)
+}
+
+func autoConvert_extensions_NetworkPolicyIngressRule_To_v1beta1_NetworkPolicyIngressRule(in *extensions.NetworkPolicyIngressRule, out *NetworkPolicyIngressRule, s conversion.Scope) error {
+	if in.Ports != nil {
+		in, out := &in.Ports, &out.Ports
+		*out = make([]NetworkPolicyPort, len(*in))
+		for i := range *in {
+			if err := Convert_extensions_NetworkPolicyPort_To_v1beta1_NetworkPolicyPort(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ports = nil
+	}
+	if in.From != nil {
+		in, out := &in.From, &out.From
+		*out = make([]NetworkPolicyPeer, len(*in))
+		for i := range *in {
+			if err := Convert_extensions_NetworkPolicyPeer_To_v1beta1_NetworkPolicyPeer(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.From = nil
+	}
+	return nil
+}
+
+func Convert_extensions_NetworkPolicyIngressRule_To_v1beta1_NetworkPolicyIngressRule(in *extensions.NetworkPolicyIngressRule, out *NetworkPolicyIngressRule, s conversion.Scope) error {
+	return autoConvert_extensions_NetworkPolicyIngressRule_To_v1beta1_NetworkPolicyIngressRule(in, out, s)
+}
+
+func autoConvert_v1beta1_NetworkPolicyList_To_extensions_NetworkPolicyList(in *NetworkPolicyList, out *extensions.NetworkPolicyList, s conversion.Scope) error {
+	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
+		return err
+	}
+	if err := api.Convert_unversioned_ListMeta_To_unversioned_ListMeta(&in.ListMeta, &out.ListMeta, s); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]extensions.NetworkPolicy, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_NetworkPolicy_To_extensions_NetworkPolicy(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func Convert_v1beta1_NetworkPolicyList_To_extensions_NetworkPolicyList(in *NetworkPolicyList, out *extensions.NetworkPolicyList, s conversion.Scope) error {
+	return autoConvert_v1beta1_NetworkPolicyList_To_extensions_NetworkPolicyList(in, out, s)
+}
+
+func autoConvert_extensions_NetworkPolicyList_To_v1beta1_NetworkPolicyList(in *extensions.NetworkPolicyList, out *NetworkPolicyList, s conversion.Scope) error {
+	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
+		return err
+	}
+	if err := api.Convert_unversioned_ListMeta_To_unversioned_ListMeta(&in.ListMeta, &out.ListMeta, s); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]NetworkPolicy, len(*in))
+		for i := range *in {
+			if err := Convert_extensions_NetworkPolicy_To_v1beta1_NetworkPolicy(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func Convert_extensions_NetworkPolicyList_To_v1beta1_NetworkPolicyList(in *extensions.NetworkPolicyList, out *NetworkPolicyList, s conversion.Scope) error {
+	return autoConvert_extensions_NetworkPolicyList_To_v1beta1_NetworkPolicyList(in, out, s)
+}
+
+func autoConvert_v1beta1_NetworkPolicyPeer_To_extensions_NetworkPolicyPeer(in *NetworkPolicyPeer, out *extensions.NetworkPolicyPeer, s conversion.Scope) error {
+	if in.PodSelector != nil {
+		in, out := &in.PodSelector, &out.PodSelector
+		*out = new(unversioned.LabelSelector)
+		if err := Convert_v1beta1_LabelSelector_To_unversioned_LabelSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.PodSelector = nil
+	}
+	if in.NamespaceSelector != nil {
+		in, out := &in.NamespaceSelector, &out.NamespaceSelector
+		*out = new(unversioned.LabelSelector)
+		if err := Convert_v1beta1_LabelSelector_To_unversioned_LabelSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.NamespaceSelector = nil
+	}
+	return nil
+}
+
+func Convert_v1beta1_NetworkPolicyPeer_To_extensions_NetworkPolicyPeer(in *NetworkPolicyPeer, out *extensions.NetworkPolicyPeer, s conversion.Scope) error {
+	return autoConvert_v1beta1_NetworkPolicyPeer_To_extensions_NetworkPolicyPeer(in, out, s)
+}
+
+func autoConvert_extensions_NetworkPolicyPeer_To_v1beta1_NetworkPolicyPeer(in *extensions.NetworkPolicyPeer, out *NetworkPolicyPeer, s conversion.Scope) error {
+	if in.PodSelector != nil {
+		in, out := &in.PodSelector, &out.PodSelector
+		*out = new(LabelSelector)
+		if err := Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.PodSelector = nil
+	}
+	if in.NamespaceSelector != nil {
+		in, out := &in.NamespaceSelector, &out.NamespaceSelector
+		*out = new(LabelSelector)
+		if err := Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.NamespaceSelector = nil
+	}
+	return nil
+}
+
+func Convert_extensions_NetworkPolicyPeer_To_v1beta1_NetworkPolicyPeer(in *extensions.NetworkPolicyPeer, out *NetworkPolicyPeer, s conversion.Scope) error {
+	return autoConvert_extensions_NetworkPolicyPeer_To_v1beta1_NetworkPolicyPeer(in, out, s)
+}
+
+func autoConvert_v1beta1_NetworkPolicyPort_To_extensions_NetworkPolicyPort(in *NetworkPolicyPort, out *extensions.NetworkPolicyPort, s conversion.Scope) error {
+	if in.Protocol != nil {
+		in, out := &in.Protocol, &out.Protocol
+		*out = new(api.Protocol)
+		**out = api.Protocol(**in)
+	} else {
+		out.Protocol = nil
+	}
+	if in.Port != nil {
+		in, out := &in.Port, &out.Port
+		*out = new(intstr.IntOrString)
+		if err := api.Convert_intstr_IntOrString_To_intstr_IntOrString(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Port = nil
+	}
+	return nil
+}
+
+func Convert_v1beta1_NetworkPolicyPort_To_extensions_NetworkPolicyPort(in *NetworkPolicyPort, out *extensions.NetworkPolicyPort, s conversion.Scope) error {
+	return autoConvert_v1beta1_NetworkPolicyPort_To_extensions_NetworkPolicyPort(in, out, s)
+}
+
+func autoConvert_extensions_NetworkPolicyPort_To_v1beta1_NetworkPolicyPort(in *extensions.NetworkPolicyPort, out *NetworkPolicyPort, s conversion.Scope) error {
+	if in.Protocol != nil {
+		in, out := &in.Protocol, &out.Protocol
+		*out = new(v1.Protocol)
+		**out = v1.Protocol(**in)
+	} else {
+		out.Protocol = nil
+	}
+	if in.Port != nil {
+		in, out := &in.Port, &out.Port
+		*out = new(intstr.IntOrString)
+		if err := api.Convert_intstr_IntOrString_To_intstr_IntOrString(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Port = nil
+	}
+	return nil
+}
+
+func Convert_extensions_NetworkPolicyPort_To_v1beta1_NetworkPolicyPort(in *extensions.NetworkPolicyPort, out *NetworkPolicyPort, s conversion.Scope) error {
+	return autoConvert_extensions_NetworkPolicyPort_To_v1beta1_NetworkPolicyPort(in, out, s)
+}
+
+func autoConvert_v1beta1_NetworkPolicySpec_To_extensions_NetworkPolicySpec(in *NetworkPolicySpec, out *extensions.NetworkPolicySpec, s conversion.Scope) error {
+	if err := Convert_v1beta1_LabelSelector_To_unversioned_LabelSelector(&in.PodSelector, &out.PodSelector, s); err != nil {
+		return err
+	}
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = make([]extensions.NetworkPolicyIngressRule, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_NetworkPolicyIngressRule_To_extensions_NetworkPolicyIngressRule(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ingress = nil
+	}
+	return nil
+}
+
+func Convert_v1beta1_NetworkPolicySpec_To_extensions_NetworkPolicySpec(in *NetworkPolicySpec, out *extensions.NetworkPolicySpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_NetworkPolicySpec_To_extensions_NetworkPolicySpec(in, out, s)
+}
+
+func autoConvert_extensions_NetworkPolicySpec_To_v1beta1_NetworkPolicySpec(in *extensions.NetworkPolicySpec, out *NetworkPolicySpec, s conversion.Scope) error {
+	if err := Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector(&in.PodSelector, &out.PodSelector, s); err != nil {
+		return err
+	}
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = make([]NetworkPolicyIngressRule, len(*in))
+		for i := range *in {
+			if err := Convert_extensions_NetworkPolicyIngressRule_To_v1beta1_NetworkPolicyIngressRule(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ingress = nil
+	}
+	return nil
+}
+
+func Convert_extensions_NetworkPolicySpec_To_v1beta1_NetworkPolicySpec(in *extensions.NetworkPolicySpec, out *NetworkPolicySpec, s conversion.Scope) error {
+	return autoConvert_extensions_NetworkPolicySpec_To_v1beta1_NetworkPolicySpec(in, out, s)
+}
+
 func autoConvert_v1beta1_PodSecurityPolicy_To_extensions_PodSecurityPolicy(in *PodSecurityPolicy, out *extensions.PodSecurityPolicy, s conversion.Scope) error {
 	if err := api.Convert_unversioned_TypeMeta_To_unversioned_TypeMeta(&in.TypeMeta, &out.TypeMeta, s); err != nil {
 		return err
@@ -1679,14 +1948,32 @@ func Convert_extensions_PodSecurityPolicyList_To_v1beta1_PodSecurityPolicyList(i
 
 func autoConvert_v1beta1_PodSecurityPolicySpec_To_extensions_PodSecurityPolicySpec(in *PodSecurityPolicySpec, out *extensions.PodSecurityPolicySpec, s conversion.Scope) error {
 	out.Privileged = in.Privileged
-	if in.Capabilities != nil {
-		in, out := &in.Capabilities, &out.Capabilities
+	if in.DefaultAddCapabilities != nil {
+		in, out := &in.DefaultAddCapabilities, &out.DefaultAddCapabilities
 		*out = make([]api.Capability, len(*in))
 		for i := range *in {
 			(*out)[i] = api.Capability((*in)[i])
 		}
 	} else {
-		out.Capabilities = nil
+		out.DefaultAddCapabilities = nil
+	}
+	if in.RequiredDropCapabilities != nil {
+		in, out := &in.RequiredDropCapabilities, &out.RequiredDropCapabilities
+		*out = make([]api.Capability, len(*in))
+		for i := range *in {
+			(*out)[i] = api.Capability((*in)[i])
+		}
+	} else {
+		out.RequiredDropCapabilities = nil
+	}
+	if in.AllowedCapabilities != nil {
+		in, out := &in.AllowedCapabilities, &out.AllowedCapabilities
+		*out = make([]api.Capability, len(*in))
+		for i := range *in {
+			(*out)[i] = api.Capability((*in)[i])
+		}
+	} else {
+		out.AllowedCapabilities = nil
 	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
@@ -1717,6 +2004,13 @@ func autoConvert_v1beta1_PodSecurityPolicySpec_To_extensions_PodSecurityPolicySp
 	if err := Convert_v1beta1_RunAsUserStrategyOptions_To_extensions_RunAsUserStrategyOptions(&in.RunAsUser, &out.RunAsUser, s); err != nil {
 		return err
 	}
+	if err := Convert_v1beta1_SupplementalGroupsStrategyOptions_To_extensions_SupplementalGroupsStrategyOptions(&in.SupplementalGroups, &out.SupplementalGroups, s); err != nil {
+		return err
+	}
+	if err := Convert_v1beta1_FSGroupStrategyOptions_To_extensions_FSGroupStrategyOptions(&in.FSGroup, &out.FSGroup, s); err != nil {
+		return err
+	}
+	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
 	return nil
 }
 
@@ -1726,14 +2020,32 @@ func Convert_v1beta1_PodSecurityPolicySpec_To_extensions_PodSecurityPolicySpec(i
 
 func autoConvert_extensions_PodSecurityPolicySpec_To_v1beta1_PodSecurityPolicySpec(in *extensions.PodSecurityPolicySpec, out *PodSecurityPolicySpec, s conversion.Scope) error {
 	out.Privileged = in.Privileged
-	if in.Capabilities != nil {
-		in, out := &in.Capabilities, &out.Capabilities
+	if in.DefaultAddCapabilities != nil {
+		in, out := &in.DefaultAddCapabilities, &out.DefaultAddCapabilities
 		*out = make([]v1.Capability, len(*in))
 		for i := range *in {
 			(*out)[i] = v1.Capability((*in)[i])
 		}
 	} else {
-		out.Capabilities = nil
+		out.DefaultAddCapabilities = nil
+	}
+	if in.RequiredDropCapabilities != nil {
+		in, out := &in.RequiredDropCapabilities, &out.RequiredDropCapabilities
+		*out = make([]v1.Capability, len(*in))
+		for i := range *in {
+			(*out)[i] = v1.Capability((*in)[i])
+		}
+	} else {
+		out.RequiredDropCapabilities = nil
+	}
+	if in.AllowedCapabilities != nil {
+		in, out := &in.AllowedCapabilities, &out.AllowedCapabilities
+		*out = make([]v1.Capability, len(*in))
+		for i := range *in {
+			(*out)[i] = v1.Capability((*in)[i])
+		}
+	} else {
+		out.AllowedCapabilities = nil
 	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
@@ -1764,6 +2076,13 @@ func autoConvert_extensions_PodSecurityPolicySpec_To_v1beta1_PodSecurityPolicySp
 	if err := Convert_extensions_RunAsUserStrategyOptions_To_v1beta1_RunAsUserStrategyOptions(&in.RunAsUser, &out.RunAsUser, s); err != nil {
 		return err
 	}
+	if err := Convert_extensions_SupplementalGroupsStrategyOptions_To_v1beta1_SupplementalGroupsStrategyOptions(&in.SupplementalGroups, &out.SupplementalGroups, s); err != nil {
+		return err
+	}
+	if err := Convert_extensions_FSGroupStrategyOptions_To_v1beta1_FSGroupStrategyOptions(&in.FSGroup, &out.FSGroup, s); err != nil {
+		return err
+	}
+	out.ReadOnlyRootFilesystem = in.ReadOnlyRootFilesystem
 	return nil
 }
 
@@ -2064,28 +2383,44 @@ func Convert_extensions_ScaleSpec_To_v1beta1_ScaleSpec(in *extensions.ScaleSpec,
 	return autoConvert_extensions_ScaleSpec_To_v1beta1_ScaleSpec(in, out, s)
 }
 
-func autoConvert_v1beta1_SubresourceReference_To_extensions_SubresourceReference(in *SubresourceReference, out *extensions.SubresourceReference, s conversion.Scope) error {
-	out.Kind = in.Kind
-	out.Name = in.Name
-	out.APIVersion = in.APIVersion
-	out.Subresource = in.Subresource
+func autoConvert_v1beta1_SupplementalGroupsStrategyOptions_To_extensions_SupplementalGroupsStrategyOptions(in *SupplementalGroupsStrategyOptions, out *extensions.SupplementalGroupsStrategyOptions, s conversion.Scope) error {
+	out.Rule = extensions.SupplementalGroupsStrategyType(in.Rule)
+	if in.Ranges != nil {
+		in, out := &in.Ranges, &out.Ranges
+		*out = make([]extensions.IDRange, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_IDRange_To_extensions_IDRange(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ranges = nil
+	}
 	return nil
 }
 
-func Convert_v1beta1_SubresourceReference_To_extensions_SubresourceReference(in *SubresourceReference, out *extensions.SubresourceReference, s conversion.Scope) error {
-	return autoConvert_v1beta1_SubresourceReference_To_extensions_SubresourceReference(in, out, s)
+func Convert_v1beta1_SupplementalGroupsStrategyOptions_To_extensions_SupplementalGroupsStrategyOptions(in *SupplementalGroupsStrategyOptions, out *extensions.SupplementalGroupsStrategyOptions, s conversion.Scope) error {
+	return autoConvert_v1beta1_SupplementalGroupsStrategyOptions_To_extensions_SupplementalGroupsStrategyOptions(in, out, s)
 }
 
-func autoConvert_extensions_SubresourceReference_To_v1beta1_SubresourceReference(in *extensions.SubresourceReference, out *SubresourceReference, s conversion.Scope) error {
-	out.Kind = in.Kind
-	out.Name = in.Name
-	out.APIVersion = in.APIVersion
-	out.Subresource = in.Subresource
+func autoConvert_extensions_SupplementalGroupsStrategyOptions_To_v1beta1_SupplementalGroupsStrategyOptions(in *extensions.SupplementalGroupsStrategyOptions, out *SupplementalGroupsStrategyOptions, s conversion.Scope) error {
+	out.Rule = SupplementalGroupsStrategyType(in.Rule)
+	if in.Ranges != nil {
+		in, out := &in.Ranges, &out.Ranges
+		*out = make([]IDRange, len(*in))
+		for i := range *in {
+			if err := Convert_extensions_IDRange_To_v1beta1_IDRange(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Ranges = nil
+	}
 	return nil
 }
 
-func Convert_extensions_SubresourceReference_To_v1beta1_SubresourceReference(in *extensions.SubresourceReference, out *SubresourceReference, s conversion.Scope) error {
-	return autoConvert_extensions_SubresourceReference_To_v1beta1_SubresourceReference(in, out, s)
+func Convert_extensions_SupplementalGroupsStrategyOptions_To_v1beta1_SupplementalGroupsStrategyOptions(in *extensions.SupplementalGroupsStrategyOptions, out *SupplementalGroupsStrategyOptions, s conversion.Scope) error {
+	return autoConvert_extensions_SupplementalGroupsStrategyOptions_To_v1beta1_SupplementalGroupsStrategyOptions(in, out, s)
 }
 
 func autoConvert_v1beta1_ThirdPartyResource_To_extensions_ThirdPartyResource(in *ThirdPartyResource, out *extensions.ThirdPartyResource, s conversion.Scope) error {
