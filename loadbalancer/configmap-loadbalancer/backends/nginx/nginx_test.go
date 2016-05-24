@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 	
-	"k8s.io/contrib/loadbalancer/backends"
+	"k8s.io/contrib/loadbalancer/configmap-loadbalancer/backends"
 )
 
 func TestGetNGINXConfigFileName(t *testing.T) {

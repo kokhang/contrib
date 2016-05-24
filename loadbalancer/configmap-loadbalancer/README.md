@@ -18,7 +18,7 @@ It is designed to easily integrate and create different load balancing backends.
 
 1. Create controller Resource:
   ```
-  $ kubectl create -f ingress-loadbalancer-rc.yaml
+  $ kubectl create -f configmap-loadbalancer-rc.yaml
   ```
 
 1. The Controller container exposes ports 80 and 3306 on the host it runs. 
@@ -35,7 +35,7 @@ Make sure to add a firewall to allow incoming traffic on this ports.
   NAME                          READY     STATUS    RESTARTS   AGE       NODE
   coffee-rc-mtjuw               1/1       Running   0          3m        172.17.4.202
   coffee-rc-mu9ns               1/1       Running   0          3m        172.17.4.202
-  ingress-loadbalancer-rc-9p6ay 1/1       Running   0          1m        172.17.4.201
+  configmap-loadbalancer-rc-9p6 1/1       Running   0          1m        172.17.4.201
   mysql-pod                     1/1       Running   0          1h        172.17.4.202
   ```
 
@@ -80,7 +80,7 @@ Make sure to add a firewall to allow incoming traffic on this ports.
 
 1. Create controller Resource (if you havent had already created it):
   ```
-  $ kubectl create -f ingress-loadbalancer-rc.yaml
+  $ kubectl create -f configmap-loadbalancer-rc.yaml
   ```
 
 1. The Controller container exposes ports 80 and 3306 on the host it runs. 
@@ -97,7 +97,7 @@ Make sure to add a firewall to allow incoming traffic on this ports.
   NAME                          READY     STATUS    RESTARTS   AGE       NODE
   coffee-rc-mtjuw               1/1       Running   0          3m        172.17.4.202
   coffee-rc-mu9ns               1/1       Running   0          3m        172.17.4.202
-  ingress-loadbalancer-rc-9p6ay 1/1       Running   0          1m        172.17.4.201
+  configmap-loadbalancer-rc-9p6 1/1       Running   0          1m        172.17.4.201
   mysql-pod                     1/1       Running   0          1h        172.17.4.202
   ```
 

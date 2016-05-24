@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/contrib/loadbalancer/backends"
+	"k8s.io/contrib/loadbalancer/configmap-loadbalancer/backends"
 )
 
 // NGINXController Updates NGINX configuration, starts and reloads NGINX

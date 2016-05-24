@@ -7,12 +7,12 @@ RUN apt-get install -y --no-install-recommends \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# forward nginx access and error logs to stdout and stderr of the ingress
+# forward nginx access and error logs to stdout and stderr of the configmap
 # controller process
 RUN ln -sf /proc/1/fd/1 /var/log/nginx/access.log \
 	&& ln -sf /proc/1/fd/2 /var/log/nginx/error.log
 
-COPY ingress-loadbalancer /
+COPY configmap-loadbalancer /
 COPY backends/nginx/nginx.tmpl /
 
-ENTRYPOINT ["/ingress-loadbalancer"]
+ENTRYPOINT ["/configmap-loadbalancer"]

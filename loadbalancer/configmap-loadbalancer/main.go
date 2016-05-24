@@ -8,9 +8,9 @@ import (
 	"github.com/golang/glog"
     "github.com/spf13/pflag"
 
-	"k8s.io/contrib/loadbalancer/backends"
-	"k8s.io/contrib/loadbalancer/backends/nginx"
-	"k8s.io/contrib/loadbalancer/controllers"
+	"k8s.io/contrib/loadbalancer/configmap-loadbalancer/backends"
+	"k8s.io/contrib/loadbalancer/configmap-loadbalancer/backends/nginx"
+	"k8s.io/contrib/loadbalancer/configmap-loadbalancer/controllers"
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
     kubectl_util "k8s.io/kubernetes/pkg/kubectl/cmd/util"
@@ -23,7 +23,7 @@ var (
 		 pod secrets for creating a Kubernetes client.`)
 
 	watchNamespace = flag.String("watch-namespace", api.NamespaceAll,
-		`Namespace to watch for Ingress/Services/Endpoints. By default the controller
+		`Namespace to watch for Configmap/Services/Endpoints. By default the controller
 		watches acrosss all namespaces`)
 )
 
