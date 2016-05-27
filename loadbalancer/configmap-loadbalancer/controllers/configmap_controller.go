@@ -36,18 +36,18 @@ import (
 // ConfigMapController watches Kubernetes API for ConfigMap changes
 // and reconfigures backend when needed
 type ConfigMapController struct {
-	client         *client.Client
-	configMapController  *framework.Controller
-	configMapLister      StoreToConfigMapLister
-	configMapQueue       *taskQueue
-	stopCh         chan struct{}
-	backendController    backends.BackendController
+	client              *client.Client
+	configMapController *framework.Controller
+	configMapLister     StoreToConfigMapLister
+	configMapQueue      *taskQueue
+	stopCh              chan struct{}
+	backendController   backends.BackendController
 }
 
 // Values to verify the configmap object is a loadbalancer config
 const (
-	configLabelKey = "app"
-	configLabelValue = "loadbalancer"
+	configLabelKey   = "loadbalancer"
+	configLabelValue = "configmap"
 )
 
 var keyFunc = framework.DeletionHandlingMetaNamespaceKeyFunc
@@ -55,8 +55,8 @@ var keyFunc = framework.DeletionHandlingMetaNamespaceKeyFunc
 // NewConfigMapController creates a controller
 func NewConfigMapController(kubeClient *client.Client, resyncPeriod time.Duration, namespace string, controller backends.BackendController) (*ConfigMapController, error) {
 	configMapController := ConfigMapController{
-		client: kubeClient,
-		stopCh: make(chan struct{}),
+		client:            kubeClient,
+		stopCh:            make(chan struct{}),
 		backendController: controller,
 	}
 	configMapController.configMapQueue = NewTaskQueue(configMapController.syncConfigMap)
@@ -80,14 +80,14 @@ func NewConfigMapController(kubeClient *client.Client, resyncPeriod time.Duratio
 			WatchFunc: configMapWatchFunc(kubeClient, namespace),
 		},
 		&api.ConfigMap{}, resyncPeriod, configMapHandlers)
-   
-    return &configMapController, nil
+
+	return &configMapController, nil
 }
 
 // Run starts the configmap controller
 func (configMapController *ConfigMapController) Run() {
 	go configMapController.configMapController.Run(configMapController.stopCh)
-    go configMapController.configMapQueue.run(time.Second, configMapController.stopCh)
+	go configMapController.configMapQueue.run(time.Second, configMapController.stopCh)
 	<-configMapController.stopCh
 }
 
@@ -105,7 +105,7 @@ func configMapWatchFunc(c *client.Client, ns string) func(options api.ListOption
 
 func (configMapController *ConfigMapController) syncConfigMap(key string) {
 	glog.Infof("Syncing %v", key)
-	
+
 	// defaut/some-configmap -> default-some-configmap
 	name := strings.Replace(key, "/", "-", -1)
 
@@ -114,17 +114,17 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
 		configMapController.configMapQueue.requeue(key, err)
 		return
 	}
-    
-    if !configMapExists {
+
+	if !configMapExists {
 		configMapController.backendController.DeleteConfig(name)
-    } else {
-        configMap := obj.(*api.ConfigMap)
+	} else {
+		configMap := obj.(*api.ConfigMap)
 		configMapData := configMap.Data
 		configMapMetaData := configMap.ObjectMeta
 
 		// Check if the configmap event is of type app=loadbalancer.
-		if val, ok := configMapMetaData.Labels[configLabelKey]; !ok || val != configLabelValue{
-			return;
+		if val, ok := configMapMetaData.Labels[configLabelKey]; !ok || val != configLabelValue {
+			return
 		}
 
 		glog.Infof("Adding ConfigMap: %v", key)
@@ -134,19 +134,19 @@ func (configMapController *ConfigMapController) syncConfigMap(key string) {
 		ssl, _ := strconv.ParseBool(configMapData["SSL"])
 		sslPort, _ := strconv.Atoi(configMapData["ssl-port"])
 		backendConfig := backends.BackendConfig{
-			Host: configMapData["host"],
-			Namespace: configMapData["namespace"],
-			BindIp: configMapData["bind-ip"],
-			BindPort: bindPort,
+			Host:              configMapData["host"],
+			Namespace:         configMapData["namespace"],
+			BindIp:            configMapData["bind-ip"],
+			BindPort:          bindPort,
 			TargetServiceName: configMapData["target-service-name"],
-			TargetServiceId: configMapData["target-service-id"],
-			TargetPort: targetPort,
-			SSL: ssl,
-			SSLPort: sslPort,
-			Path:  configMapData["path"],
-			TlsCert: "some cert", //TODO get certs from secret
-			TlsKey: "some key", //TODO get certs from secret
+			TargetServiceId:   configMapData["target-service-id"],
+			TargetPort:        targetPort,
+			SSL:               ssl,
+			SSLPort:           sslPort,
+			Path:              configMapData["path"],
+			TlsCert:           "some cert", //TODO get certs from secret
+			TlsKey:            "some key",  //TODO get certs from secret
 		}
-		configMapController.backendController.AddConfig(name, backendConfig)	
+		configMapController.backendController.AddConfig(name, backendConfig)
 	}
 }

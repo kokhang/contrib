@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
     name: configmap-mysql-svc
     labels:
-        app: loadbalancer
+        loadbalancer: configmap
 data:
     host: "mysql.bar.com"
     namespace: "default"
