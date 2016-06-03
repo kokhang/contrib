@@ -23,16 +23,13 @@ spec:
           value: admin
         - name: OS_PASSWORD
           value: password
+        - name: OS_TENANT_NAME
+          value: admin
         - name: OS_SUBNET_ID
           value: 90f05f12-c9bb-42d1-9318-2aa71153fb3e
         image: kokhang/ingress-loadbalancer:0.1
         imagePullPolicy: Always
         name: ingress-loadbalancer
-        ports:
-        - containerPort: 80
-          hostPort: 80
-        - containerPort: 3306
-          hostPort: 3306
       #   securityContext:
       #     privileged: true
       # hostNetwork: true
