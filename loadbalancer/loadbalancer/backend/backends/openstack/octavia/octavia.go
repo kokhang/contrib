@@ -3,7 +3,6 @@ package octavia
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -16,9 +15,7 @@ import (
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
 	"github.com/rackspace/gophercloud/pagination"
-	"gopkg.in/gcfg.v1"
 	"k8s.io/contrib/loadbalancer/loadbalancer/backend"
-	"k8s.io/kubernetes/pkg/cloudprovider/providers/openstack"
 
 	"github.com/golang/glog"
 )
@@ -46,7 +43,7 @@ func init() {
 // NewOctaviaController creates a Octavia controller
 func NewOctaviaController(conf map[string]string) (backend.BackendController, error) {
 
-	octControl := createController(conf["OPENSTACK_CONFIG_FILE"])
+	octControl := createController()
 
 	// Doing nova list
 	pager := servers.List(octControl.compute, servers.ListOpts{})
@@ -88,59 +85,31 @@ func NewOctaviaController(conf map[string]string) (backend.BackendController, er
 	return &octControl, nil
 }
 
-func readConfig(config io.Reader) (openstack.Config, error) {
-	if config == nil {
-		err := fmt.Errorf("no OpenStack cloud provider config file given")
-		return openstack.Config{}, err
-	}
+func createController() OctaviaController {
 
-	var cfg openstack.Config
-	err := gcfg.ReadInto(&cfg, config)
-	return cfg, err
-}
-
-func toAuthOptions(cfg openstack.Config) gophercloud.AuthOptions {
-	return gophercloud.AuthOptions{
-		IdentityEndpoint: cfg.Global.AuthUrl,
-		Username:         cfg.Global.Username,
-		UserID:           cfg.Global.UserId,
-		Password:         cfg.Global.Password,
-		APIKey:           cfg.Global.ApiKey,
-		TenantID:         cfg.Global.TenantId,
-		TenantName:       cfg.Global.TenantName,
-		DomainID:         cfg.Global.DomainId,
-		DomainName:       cfg.Global.DomainName,
-
+	authOptions := gophercloud.AuthOptions{
+		IdentityEndpoint: os.Getenv("OS_AUTH_URL"),
+		Username:         os.Getenv("OS_USERNAME"),
+		Password:         os.Getenv("OS_PASSWORD"),
+		TenantName:       os.Getenv("OS_TENANT_NAME"),
 		// Persistent service, so we need to be able to renew tokens.
 		AllowReauth: true,
 	}
-}
 
-func createController(openstackConfig string) OctaviaController {
-
-	config, e := os.Open(openstackConfig)
-	if e != nil {
-		glog.Warningf("Could not open file %v. %v", openstackConfig, e)
-	}
-	osCfg, err := readConfig(config)
+	openstackClient, err := openstack_lib.AuthenticatedClient(authOptions)
 	if err != nil {
-		glog.Fatalf("Could read config file %v. %v", openstackConfig, e)
-	}
-
-	openstackClient, err := openstack_lib.AuthenticatedClient(toAuthOptions(osCfg))
-	if err != nil {
-		glog.Fatalf("Failed to retrieve openstack client. %v", e)
+		glog.Fatalf("Failed to retrieve openstack client. %v", err)
 	}
 
 	compute, err := openstack_lib.NewComputeV2(openstackClient, gophercloud.EndpointOpts{
-		Region: osCfg.Global.Region,
+		Region: os.Getenv("OS_REGION_NAME"),
 	})
 	if err != nil {
 		glog.Fatalf("Failed to find compute endpoint: %v", err)
 	}
 
 	network, err := openstack_lib.NewNetworkV2(openstackClient, gophercloud.EndpointOpts{
-		Region: osCfg.Global.Region,
+		Region: os.Getenv("OS_REGION_NAME"),
 	})
 	if err != nil {
 		glog.Fatalf("Failed to find network endpoint: %v", err)
@@ -149,9 +118,8 @@ func createController(openstackConfig string) OctaviaController {
 	return OctaviaController{
 		compute:  compute,
 		network:  network,
-		subnetID: osCfg.LoadBalancer.SubnetId,
+		subnetID: os.Getenv("OS_SUBNET_ID"),
 	}
-
 }
 
 // Name returns the name of the backend controller
@@ -165,6 +133,9 @@ func (octavia *OctaviaController) Create(name string, config backend.BackendConf
 		glog.Errorf("Nodeport is needed for loadbalancer")
 		return
 	}
+
+	// Delete current load balancer for this service if it exist
+	octavia.Delete(name)
 
 	lbName := getResourceName(LOADBALANCER, name)
 	lb, err := loadbalancers.Create(octavia.network, loadbalancers.CreateOpts{
@@ -348,7 +319,7 @@ func (octavia *OctaviaController) checkLoadbalancerReady(lbID string) (bool, err
 }
 
 func (octavia *OctaviaController) deleteOctaviaResource(lbID string, resourceType string, resourceID string) {
-	glog.Errorf("Deleting %v %v. %v", resourceType, resourceID)
+	glog.Errorf("Deleting %v %v.", resourceType, resourceID)
 	var err error
 	switch {
 	case resourceType == LOADBALANCER:

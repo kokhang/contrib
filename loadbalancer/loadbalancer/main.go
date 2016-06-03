@@ -49,8 +49,7 @@ func main() {
 	}
 
 	backendController, err := backend.CreateBackendController(map[string]string{
-		"BACKEND":               "octavia",
-		"OPENSTACK_CONFIG_FILE": "/Users/steveleon/devstack.conf",
+		"BACKEND": "octavia",
 	})
 	loadBalancerController, _ := controllers.NewLoadBalancerController(kubeClient, 30*time.Second, *watchNamespace, backendController)
 	loadBalancerController.Run()
