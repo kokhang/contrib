@@ -9,7 +9,6 @@ import (
 
 	"github.com/rackspace/gophercloud"
 	openstack_lib "github.com/rackspace/gophercloud/openstack"
-	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas_v2/listeners"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas_v2/loadbalancers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
@@ -43,43 +42,38 @@ func init() {
 // NewOctaviaController creates a Octavia controller
 func NewOctaviaController(conf map[string]string) (backend.BackendController, error) {
 
-	octControl := createController()
-
-	// Doing nova list
-	pager := servers.List(octControl.compute, servers.ListOpts{})
-	serverErr := pager.EachPage(func(page pagination.Page) (bool, error) {
-		sList, err := servers.ExtractServers(page)
-		if err != nil {
-			return false, err
-		}
-		for _, server := range sList {
-			glog.Infof("Server found: %v", server)
-		}
-		return true, nil
-	})
-	if serverErr != nil {
-		return nil, serverErr
+	authOptions := gophercloud.AuthOptions{
+		IdentityEndpoint: os.Getenv("OS_AUTH_URL"),
+		Username:         os.Getenv("OS_USERNAME"),
+		Password:         os.Getenv("OS_PASSWORD"),
+		TenantName:       os.Getenv("OS_TENANT_NAME"),
+		// Persistent service, so we need to be able to renew tokens.
+		AllowReauth: true,
 	}
 
-	// neutron lbaas-loadbalancer-list
+	openstackClient, err := openstack_lib.AuthenticatedClient(authOptions)
+	if err != nil {
+		glog.Fatalf("Failed to retrieve openstack client. %v", err)
+	}
 
-	lbPager := loadbalancers.List(octControl.network, loadbalancers.ListOpts{})
-	lbErr := lbPager.EachPage(func(page pagination.Page) (bool, error) {
-		loadbalancerList, err := loadbalancers.ExtractLoadbalancers(page)
-		if err != nil {
-			return false, err
-		}
-
-		for _, loadbalancer := range loadbalancerList {
-			glog.Info("Listing Loadbalancer: ID [%s] Name [%s] Address [%s]",
-				loadbalancer.ID, loadbalancer.Name, loadbalancer.VipAddress)
-		}
-
-		return true, nil
+	compute, err := openstack_lib.NewComputeV2(openstackClient, gophercloud.EndpointOpts{
+		Region: os.Getenv("OS_REGION_NAME"),
 	})
+	if err != nil {
+		glog.Fatalf("Failed to find compute endpoint: %v", err)
+	}
 
-	if lbErr != nil {
-		return nil, lbErr
+	network, err := openstack_lib.NewNetworkV2(openstackClient, gophercloud.EndpointOpts{
+		Region: os.Getenv("OS_REGION_NAME"),
+	})
+	if err != nil {
+		glog.Fatalf("Failed to find network endpoint: %v", err)
+	}
+
+	octControl := OctaviaController{
+		compute:  compute,
+		network:  network,
+		subnetID: os.Getenv("OS_SUBNET_ID"),
 	}
 
 	return &octControl, nil

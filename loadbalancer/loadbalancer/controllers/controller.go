@@ -209,6 +209,11 @@ func (lbController *LoadBalancerController) syncConfigMap(key string) {
 		serviceName := configMapData["target-service-name"]
 		namespace := configMapData["namespace"]
 		serviceObj := lbController.getServiceObject(namespace, serviceName)
+		// Check if the service exists
+		if serviceObj == nil {
+			return
+		}
+
 		bindPort, _ := strconv.Atoi(configMapData["bind-port"])
 		targetServicePort, _ := strconv.Atoi(configMapData["target-port"])
 		servicePort, err := getServicePort(serviceObj, targetServicePort)
@@ -217,7 +222,7 @@ func (lbController *LoadBalancerController) syncConfigMap(key string) {
 			return
 		}
 
-		nodes, _ := lbController.getReadyNodeNames()
+		nodes, _ := lbController.getReadyNodeIPs()
 		backendConfig := backend.BackendConfig{
 			Host:              configMapData["host"],
 			Namespace:         namespace,
@@ -272,17 +277,44 @@ func nodeReady(node api.Node) bool {
 }
 
 // getReadyNodeNames returns names of schedulable, ready nodes from the node lister.
-func (lbController *LoadBalancerController) getReadyNodeNames() ([]string, error) {
-	nodeNames := []string{}
+func (lbController *LoadBalancerController) getReadyNodeIPs() ([]string, error) {
+	nodeIPs := []string{}
 	nodes, err := lbController.nodeLister.NodeCondition(nodeReady).List()
 	if err != nil {
-		return nodeNames, err
+		return nodeIPs, err
 	}
 	for _, n := range nodes.Items {
 		if n.Spec.Unschedulable {
 			continue
 		}
-		nodeNames = append(nodeNames, n.Name)
+		ip, err := getNodeHostIP(n)
+		if err != nil {
+			glog.Errorf("Error getting node IP for %v. %v", n.Name, err)
+			continue
+		}
+		nodeIPs = append(nodeIPs, *ip)
 	}
-	return nodeNames, nil
+	return nodeIPs, nil
+}
+
+// getNodeHostIP returns the provided node's IP, based on the priority:
+// 1. NodeExternalIP
+// 2. NodeLegacyHostIP
+// 3. NodeInternalIP
+func getNodeHostIP(node api.Node) (*string, error) {
+	addresses := node.Status.Addresses
+	addressMap := make(map[api.NodeAddressType][]api.NodeAddress)
+	for i := range addresses {
+		addressMap[addresses[i].Type] = append(addressMap[addresses[i].Type], addresses[i])
+	}
+	if addresses, ok := addressMap[api.NodeExternalIP]; ok {
+		return &addresses[0].Address, nil
+	}
+	if addresses, ok := addressMap[api.NodeLegacyHostIP]; ok {
+		return &addresses[0].Address, nil
+	}
+	if addresses, ok := addressMap[api.NodeInternalIP]; ok {
+		return &addresses[0].Address, nil
+	}
+	return nil, fmt.Errorf("Host IP unknown; known addresses: %v", addresses)
 }
