@@ -39,6 +39,7 @@ spec:
     # the port that this service should serve on
     - port: 3306
   # label keys and values that must match in order to receive traffic for this service
+  type: NodePort
   selector: 
     name: mysql-pod
     context: docker-k8s-lab

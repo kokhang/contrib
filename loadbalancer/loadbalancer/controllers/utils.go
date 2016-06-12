@@ -64,7 +64,6 @@ func (t *taskQueue) worker() {
 			close(t.workerDone)
 			return
 		}
-		glog.Infof("Syncing %v", key)
 		t.sync(key.(string))
 		t.queue.Done(key)
 	}

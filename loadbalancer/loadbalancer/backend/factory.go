@@ -31,6 +31,9 @@ type BackendController interface {
 	Name() string
 	Create(name string, config BackendConfig)
 	Delete(name string)
+	AddNodeHandler(ip string, configMapNodePortMap map[string]int)
+	DeleteNodeHandler(ip string, configMapNodePortMap map[string]int)
+	UpdateNodeHandler(oldIP string, newIP string, configMapNodePortMap map[string]int)
 }
 
 // BackendControllerFactory Factory for Backend controllers

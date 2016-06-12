@@ -31,6 +31,7 @@ import (
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/controller/framework"
 	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
 )
@@ -54,8 +55,6 @@ type LoadBalancerController struct {
 const (
 	configLabelKey   = "app"
 	configLabelValue = "loadbalancer"
-	// port 0 is used as a signal for port not found/no such port etc.
-	invalidPort = 0
 )
 
 var keyFunc = framework.DeletionHandlingMetaNamespaceKeyFunc
@@ -115,13 +114,43 @@ func NewLoadBalancerController(kubeClient *client.Client, resyncPeriod time.Dura
 	nodeHandlers := framework.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			addNode := obj.(*api.Node)
-			glog.Infof("Adding node: %v", addNode.Name)
+			if nodeReady(*addNode) {
+				configMapNodePortMap := lbController.getLBConfigMapNodePortMap()
+				ip, err := getNodeHostIP(*addNode)
+				if err != nil {
+					glog.Errorf("Error getting IP for node %v", addNode.Name)
+					return
+				}
+				go lbController.backendController.AddNodeHandler(*ip, configMapNodePortMap)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			remNode := obj.(*api.Node)
-			glog.Infof("Removing node: %v", remNode.Name)
+			delNode := obj.(*api.Node)
+			if nodeReady(*delNode) {
+				ip, _ := getNodeHostIP(*delNode)
+				configMapNodePortMap := lbController.getLBConfigMapNodePortMap()
+				go lbController.backendController.DeleteNodeHandler(*ip, configMapNodePortMap)
+			}
 		},
-		// Nodes are updated every 10s and we don't care, so no update handler.
+		UpdateFunc: func(old, cur interface{}) {
+			// Only sync nodes when they are in READY state and have their IPs changed
+			curNode := cur.(*api.Node)
+			if nodeReady(*curNode) {
+				oldNode := old.(*api.Node)
+				oldNodeIP, _ := getNodeHostIP(*oldNode)
+				curNodeIP, _ := getNodeHostIP(*curNode)
+				var configMapNodePortMap map[string]int
+				if oldNodeIP == nil {
+					glog.Infof("Updated node %v. IP set to %v. Syncing", curNode.Name, *curNodeIP)
+					configMapNodePortMap = lbController.getLBConfigMapNodePortMap()
+					go lbController.backendController.AddNodeHandler(*curNodeIP, configMapNodePortMap)
+				} else if *oldNodeIP != *curNodeIP {
+					glog.Infof("Updated node %v. IP changed from %v to %v. Syncing", curNode.Name, *oldNodeIP, *curNodeIP)
+					configMapNodePortMap = lbController.getLBConfigMapNodePortMap()
+					go lbController.backendController.UpdateNodeHandler(*oldNodeIP, *curNodeIP, configMapNodePortMap)
+				}
+			}
+		},
 	}
 
 	lbController.nodeLister.Store, lbController.nodeController = framework.NewInformer(
@@ -160,12 +189,14 @@ func (lbController *LoadBalancerController) Run() {
 
 func configMapListFunc(c *client.Client, ns string) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
+		opts.LabelSelector = labels.Set{configLabelKey: configLabelValue}.AsSelector()
 		return c.ConfigMaps(ns).List(opts)
 	}
 }
 
 func configMapWatchFunc(c *client.Client, ns string) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
+		options.LabelSelector = labels.Set{configLabelKey: configLabelValue}.AsSelector()
 		return c.ConfigMaps(ns).Watch(options)
 	}
 }
@@ -183,7 +214,7 @@ func serviceWatchFunc(c *client.Client, ns string) func(options api.ListOptions)
 }
 
 func (lbController *LoadBalancerController) syncConfigMap(key string) {
-	glog.Infof("Syncing %v", key)
+	glog.Infof("Syncing configmap %v", key)
 
 	// defaut/some-configmap -> default-some-configmap
 	name := strings.Replace(key, "/", "-", -1)
@@ -195,16 +226,10 @@ func (lbController *LoadBalancerController) syncConfigMap(key string) {
 	}
 
 	if !configMapExists {
-		lbController.backendController.Delete(name)
+		go lbController.backendController.Delete(name)
 	} else {
 		configMap := obj.(*api.ConfigMap)
 		configMapData := configMap.Data
-		configMapMetaData := configMap.ObjectMeta
-
-		// Check if the configmap event is of type app=loadbalancer.
-		if val, ok := configMapMetaData.Labels[configLabelKey]; !ok || val != configLabelValue {
-			return
-		}
 
 		serviceName := configMapData["target-service-name"]
 		namespace := configMapData["namespace"]
@@ -233,7 +258,7 @@ func (lbController *LoadBalancerController) syncConfigMap(key string) {
 			BindPort:          bindPort,
 			TargetPort:        targetServicePort,
 		}
-		lbController.backendController.Create(name, backendConfig)
+		go lbController.backendController.Create(name, backendConfig)
 	}
 }
 
@@ -317,4 +342,29 @@ func getNodeHostIP(node api.Node) (*string, error) {
 		return &addresses[0].Address, nil
 	}
 	return nil, fmt.Errorf("Host IP unknown; known addresses: %v", addresses)
+}
+
+func (lbController *LoadBalancerController) getLBConfigMapNodePortMap() map[string]int {
+	configMapNodePortMap := make(map[string]int)
+	configmaps := lbController.configMapLister.List()
+	for _, obj := range configmaps {
+		cm := obj.(*api.ConfigMap)
+		cmData := cm.Data
+		serviceName := cmData["target-service-name"]
+		serviceObj := lbController.getServiceObject(cm.Namespace, serviceName)
+		// Check if the service exists
+		if serviceObj == nil {
+			continue
+		}
+
+		targetServicePort, _ := strconv.Atoi(cmData["target-port"])
+		servicePort, err := getServicePort(serviceObj, targetServicePort)
+		if err != nil {
+			glog.Errorf("Error while getting the service port %v", err)
+			continue
+		}
+
+		configMapNodePortMap[cm.Namespace+"-"+cm.Name] = int(servicePort.NodePort)
+	}
+	return configMapNodePortMap
 }

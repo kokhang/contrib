@@ -269,8 +269,144 @@ func (octavia *OctaviaController) Delete(name string) {
 
 }
 
+// AddNodeHandler creates new member for this node in every loadbalancer pool
+func (octavia *OctaviaController) AddNodeHandler(ip string, configMapNodePortMap map[string]int) {
+	for configmapName, nodePort := range configMapNodePortMap {
+		poolName := getResourceName(POOL, configmapName)
+		poolID, err := octavia.getPoolIDFromName(poolName)
+		if err != nil {
+			glog.Errorf("Could not get pool %v. %v", poolName, err)
+			continue
+		}
+		memberID, err := octavia.createMemberResource(poolID, ip, nodePort)
+		if err != nil {
+			glog.Errorf("Could not create member for pool %v. IP: %v. Port: %v", poolName, ip, nodePort)
+			continue
+		}
+		glog.Infof("Created member for %v. ID: %v", ip, memberID)
+	}
+}
+
+// DeleteNodeHandler deletes member for this node
+func (octavia *OctaviaController) DeleteNodeHandler(ip string, configMapNodePortMap map[string]int) {
+	for configmapName := range configMapNodePortMap {
+		poolName := getResourceName(POOL, configmapName)
+		poolID, err := octavia.getPoolIDFromName(poolName)
+		if err != nil {
+			glog.Errorf("Could not get pool for %v. %v", poolName, err)
+			continue
+		}
+		memberID, err := octavia.getMemberIDFromIP(poolID, ip)
+		if err != nil {
+			glog.Errorf("Could not get member for pool %v. IP: %v.", poolName, ip)
+			continue
+		}
+		err = pools.DeleteMember(octavia.network, poolID, memberID).ExtractErr()
+		if err != nil {
+			glog.Errorf("Could not get member for pool %v. memberID: %v", poolName, memberID)
+			continue
+		}
+		glog.Infof("Deleted member for pool %v with IP: %v. ID: %v", poolName, ip, memberID)
+	}
+}
+
+// UpdateNodeHandler update IP of the member for this node if it exists. If it doesnt, it will create a new member
+func (octavia *OctaviaController) UpdateNodeHandler(oldIP string, newIP string, configMapNodePortMap map[string]int) {
+	for configmapName, nodePort := range configMapNodePortMap {
+		poolName := getResourceName(POOL, configmapName)
+		poolID, err := octavia.getPoolIDFromName(poolName)
+		if err != nil {
+			glog.Errorf("Could not get pool for %v. %v", poolName, err)
+			continue
+		}
+		memberID, err := octavia.getMemberIDFromIP(poolID, oldIP)
+		if err != nil {
+			glog.Warningf("Could not get member for pool %v. IP: %v. Creating...", poolName, oldIP)
+			memberID, err := octavia.createMemberResource(poolID, newIP, nodePort)
+			if err != nil {
+				glog.Errorf("Could not create member for pool %v. IP: %v. Port: %v", poolName, newIP, nodePort)
+				continue
+			}
+			glog.Infof("Created member for %v. ID: %v", newIP, memberID)
+			continue
+		}
+
+		// Update member. Change IP
+		res, err := pools.UpdateAssociateMember(octavia.network, poolID, memberID, pools.MemberUpdateOpts{
+			Address:      newIP,
+			ProtocolPort: nodePort,
+		}).ExtractMember()
+		if err != nil {
+			glog.Errorf("Could not update member %v. %v", memberID, err)
+		}
+		glog.Infof("Updated member %v. Changed IP from %v to %v.", res.ID, oldIP, newIP)
+	}
+}
+
 func getResourceName(resourceType string, names ...string) string {
 	return strings.Join(names, "-") + "-" + resourceType
+}
+
+func (octavia *OctaviaController) getPoolIDFromName(poolName string) (string, error) {
+	pager := pools.List(octavia.network, pools.ListOpts{Name: poolName})
+	var poolID string
+	poolErr := pager.EachPage(func(page pagination.Page) (bool, error) {
+		poolList, err := pools.ExtractPools(page)
+		if err != nil {
+			return false, err
+		}
+
+		if len(poolList) == 0 {
+			err = fmt.Errorf("Pool with name %v not found.", poolName)
+			return false, err
+		}
+
+		if len(poolList) > 1 {
+			err = fmt.Errorf("More than one pool with name %v found.", poolName)
+			return false, err
+		}
+		poolID = poolList[0].ID
+		return true, nil
+	})
+
+	return poolID, poolErr
+}
+
+func (octavia *OctaviaController) createMemberResource(poolID string, ip string, nodePort int) (string, error) {
+	member, err := pools.CreateAssociateMember(octavia.network, poolID, pools.MemberCreateOpts{
+		SubnetID:     octavia.subnetID,
+		Address:      ip,
+		ProtocolPort: nodePort,
+	}).ExtractMember()
+	if err != nil {
+		return "", fmt.Errorf("Could not create member for %v. %v", ip, err)
+	}
+	return member.ID, nil
+}
+
+func (octavia *OctaviaController) getMemberIDFromIP(poolID string, ip string) (string, error) {
+	var memberID string
+	pager := pools.ListAssociateMembers(octavia.network, poolID, pools.MemberListOpts{Address: ip})
+	memberErr := pager.EachPage(func(page pagination.Page) (bool, error) {
+		membersList, err := pools.ExtractMembers(page)
+		// There should only be one member that has this IP.
+		if err != nil {
+			return false, err
+		}
+
+		if len(membersList) == 0 {
+			err = fmt.Errorf("Member with IP %v not found.", ip)
+			return false, err
+		}
+
+		if len(membersList) > 1 {
+			err = fmt.Errorf("More than one member with IP %v found.", ip)
+			return false, err
+		}
+		memberID = membersList[0].ID
+		return true, nil
+	})
+	return memberID, memberErr
 }
 
 func (octavia *OctaviaController) waitLoadbalancerReady(lbID string) {
