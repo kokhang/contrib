@@ -325,7 +325,7 @@ func (octavia *OctaviaController) getPoolIDFromName(poolName string) (string, er
 		}
 
 		if len(poolList) > 1 {
-			err = fmt.Errorf("More than one pool with name %v found.", poolName)
+			err = fmt.Errorf("More than one pool with name %v found. %v", poolName, poolList)
 			return false, err
 		}
 		poolID = poolList[0].ID
