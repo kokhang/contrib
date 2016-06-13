@@ -79,43 +79,6 @@ func NewOctaviaController(conf map[string]string) (backend.BackendController, er
 	return &octControl, nil
 }
 
-func createController() OctaviaController {
-
-	authOptions := gophercloud.AuthOptions{
-		IdentityEndpoint: os.Getenv("OS_AUTH_URL"),
-		Username:         os.Getenv("OS_USERNAME"),
-		Password:         os.Getenv("OS_PASSWORD"),
-		TenantName:       os.Getenv("OS_TENANT_NAME"),
-		// Persistent service, so we need to be able to renew tokens.
-		AllowReauth: true,
-	}
-
-	openstackClient, err := openstack_lib.AuthenticatedClient(authOptions)
-	if err != nil {
-		glog.Fatalf("Failed to retrieve openstack client. %v", err)
-	}
-
-	compute, err := openstack_lib.NewComputeV2(openstackClient, gophercloud.EndpointOpts{
-		Region: os.Getenv("OS_REGION_NAME"),
-	})
-	if err != nil {
-		glog.Fatalf("Failed to find compute endpoint: %v", err)
-	}
-
-	network, err := openstack_lib.NewNetworkV2(openstackClient, gophercloud.EndpointOpts{
-		Region: os.Getenv("OS_REGION_NAME"),
-	})
-	if err != nil {
-		glog.Fatalf("Failed to find network endpoint: %v", err)
-	}
-
-	return OctaviaController{
-		compute:  compute,
-		network:  network,
-		subnetID: os.Getenv("OS_SUBNET_ID"),
-	}
-}
-
 // Name returns the name of the backend controller
 func (octavia *OctaviaController) Name() string {
 	return "OctaviaController"
