@@ -18,5 +18,5 @@ package backends
 
 import (
 	// backends
-	_ "k8s.io/contrib/loadbalancer/loadbalancer/backend/backends/openstack/octavia"
+	_ "k8s.io/contrib/loadbalancer/loadbalancer/backend/backends/openstack/lbaasv2"
 )

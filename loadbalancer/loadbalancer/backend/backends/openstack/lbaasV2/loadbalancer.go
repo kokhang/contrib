@@ -1,4 +1,4 @@
-package octavia
+package lbaasV2
 
 import (
 	"errors"
@@ -36,7 +36,7 @@ type OctaviaController struct {
 }
 
 func init() {
-	backend.Register("octavia", NewOctaviaController)
+	backend.Register("openstack-lbaasv2", NewOctaviaController)
 }
 
 // NewOctaviaController creates a Octavia controller
